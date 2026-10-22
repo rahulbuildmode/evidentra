@@ -46,7 +46,8 @@ export class RunRecorder {
   readonly run: RunRecord;
   private t0 = performance.now();
   private stepT0 = new Map<StepKey, number>();
-  private writes: Promise<void> = Promise.resolve();
+  private flushing: Promise<void> | null = null;
+  private dirty = false;
 
   constructor(
     workspaceId: string,
@@ -79,11 +80,26 @@ export class RunRecorder {
     return this.run.runId;
   }
 
-  /** Save the run as it stands (writes are chained so they never interleave). Lets a reconnecting client read progress. */
+  /**
+   * Save the run as it stands, so a reconnecting client can read progress. Coalesced: at most one
+   * write is in flight, and when it finishes only the latest state is written (never an older one).
+   */
   persist(): Promise<void> {
-    const snapshot = JSON.parse(JSON.stringify(this.run)) as RunRecord;
-    this.writes = this.writes.then(() => saveRun(snapshot)).catch(() => {});
-    return this.writes;
+    this.dirty = true;
+    this.flushing ??= this.flush();
+    return this.flushing;
+  }
+
+  private async flush(): Promise<void> {
+    try {
+      while (this.dirty) {
+        this.dirty = false;
+        await saveRun(JSON.parse(JSON.stringify(this.run)) as RunRecord).catch(() => {});
+      }
+    } finally {
+      // Runs synchronously after the last check of `dirty`, so no request can slip in between.
+      this.flushing = null;
+    }
   }
 
   event(type: RunEventType, step?: StepKey, message?: string, data?: Record<string, unknown>): void {

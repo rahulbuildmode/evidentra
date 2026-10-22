@@ -3,12 +3,11 @@ import path from "node:path";
 import { CDSCO_MFG_BCD } from "../requirements";
 import { clearResults, getAnalysis, saveAnalysis, saveProfile, saveValidation } from "./analysis-store";
 import { DEMO_ANALYSIS, DEMO_FILES } from "./demo-seed";
-import { clearDocuments, listDocuments } from "./document-store";
+import { clearDocuments, getDocument, hasDocuments } from "./document-store";
 import { ingestPdf } from "./ingest";
 import { recordChecks, recordValidation, recordVerification, summarizeFindings } from "./run-pipeline";
 import { RunRecorder } from "./run-recorder";
 import { DEMO_PROFILE } from "./validation";
-import { loadReadableDocuments } from "./workspace-docs";
 
 export const DEMO_WORKSPACE_ID = "demo-workspace"; // same id as lib/demo-data.ts
 
@@ -20,18 +19,22 @@ export const DEMO_WORKSPACE_ID = "demo-workspace"; // same id as lib/demo-data.t
 export async function loadDemo(): Promise<{ documents: number; unverifiedQuotes: number; runId: string }> {
   const ws = DEMO_WORKSPACE_ID;
   const rec = new RunRecorder(ws, "demo-seed", CDSCO_MFG_BCD.id);
-  await clearDocuments(ws);
-  await clearResults(ws);
+  await Promise.all([clearDocuments(ws), clearResults(ws)]);
   rec.start("documents", "Reading the 4 fictional PDFs in fixtures/demo-dossier (SYNTHETIC DEMO DATA)");
   rec.complete("documents", `${DEMO_FILES.length} synthetic files (not uploaded by a user)`);
   rec.start("extraction", "Extracting text page by page");
-  for (const name of DEMO_FILES) {
-    const bytes = new Uint8Array(await readFile(path.join(process.cwd(), "fixtures", "demo-dossier", name)));
-    const meta = await ingestPdf(ws, name, bytes, "demo", `demo-${name.slice(0, 2)}`);
-    rec.event("document_processed", "extraction", name, { id: meta.id, pages: meta.pageCount, extractMs: meta.extractMs });
-  }
-  const { docs, skipped } = await loadReadableDocuments(ws);
-  rec.run.documents = (await listDocuments(ws)).map((m) => ({
+  // The four files are independent: read, extract and store them in parallel.
+  const metas = await Promise.all(
+    DEMO_FILES.map(async (name) => {
+      const bytes = new Uint8Array(await readFile(path.join(process.cwd(), "fixtures", "demo-dossier", name)));
+      return ingestPdf(ws, name, bytes, "demo", `demo-${name.slice(0, 2)}`);
+    }),
+  );
+  for (const meta of metas) rec.event("document_processed", "extraction", meta.filename, { id: meta.id, pages: meta.pageCount, extractMs: meta.extractMs });
+  // Just written, so read back from this instance's cache instead of listing storage again.
+  const docs = (await Promise.all(metas.filter((m) => m.status === "extracted").map((m) => getDocument(ws, m.id)))).filter((d) => d !== null);
+  const skipped = metas.filter((m) => m.status !== "extracted").map((m) => ({ filename: m.filename, reason: m.error ?? "No extractable text" }));
+  rec.run.documents = metas.map((m) => ({
     id: m.id,
     filename: m.filename,
     status: m.status,
@@ -71,21 +74,30 @@ export async function loadDemo(): Promise<{ documents: number; unverifiedQuotes:
   summarizeFindings(rec, analysis, null);
   rec.complete("save", "Demo results saved (labelled SYNTHETIC DEMO DATA).");
   await rec.end();
+  demoConfirmedAt = Date.now();
   const unverifiedQuotes = items.flatMap((i) => i.citations).filter((c) => c.verifiedPage === null).length;
   return { documents: docs.length, unverifiedQuotes, runId: rec.runId };
 }
 
 let seeding: Promise<unknown> | null = null;
+/** When this instance last confirmed the demo exists; the check is skipped for a few minutes after. */
+let demoConfirmedAt = 0;
+const DEMO_CHECK_TTL_MS = 5 * 60_000;
 
 /**
- * On a fresh server (e.g. a new Vercel instance with an empty /tmp) the demo workspace has no
- * files. Seed it lazily so the demo still works. Never re-seeds once results exist, so a user who
- * removed demo files does not see them reappear on the same instance.
+ * If the demo workspace is empty (a fresh deployment or storage), seed it lazily so the demo still
+ * works. Never re-seeds once results exist, so a user who removed demo files does not see them
+ * reappear. Each instance re-checks at most every few minutes (one storage listing).
  */
 export async function ensureDemoLoaded(workspaceId: string): Promise<void> {
   if (workspaceId !== DEMO_WORKSPACE_ID) return;
-  if ((await listDocuments(workspaceId)).length > 0 || (await getAnalysis(workspaceId))) return;
+  if (Date.now() - demoConfirmedAt < DEMO_CHECK_TTL_MS) return;
+  if ((await hasDocuments(workspaceId)) || (await getAnalysis(workspaceId))) {
+    demoConfirmedAt = Date.now();
+    return;
+  }
   seeding ??= loadDemo()
+    .then(() => (demoConfirmedAt = Date.now()))
     .catch((e) => console.error("[demo] lazy seed failed", e))
     .finally(() => (seeding = null));
   await seeding;

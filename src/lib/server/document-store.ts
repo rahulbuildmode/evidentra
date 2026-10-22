@@ -18,6 +18,18 @@ function recordKey(workspaceId: string, id: string): string {
   return `${workspacePrefix(workspaceId)}${id}.json`;
 }
 
+/**
+ * Per-instance cache of document records. A record never changes after upload (a new upload gets a
+ * new id; demo files are rewritten with identical content), so it is safe to keep. Bounded in size.
+ */
+const MAX_CACHED = 300;
+const cache = new Map<string, UploadedDocument>();
+function remember(key: string, doc: UploadedDocument) {
+  cache.delete(key);
+  cache.set(key, doc);
+  if (cache.size > MAX_CACHED) cache.delete(cache.keys().next().value!);
+}
+
 export function toMeta(doc: UploadedDocument): UploadedDocumentMeta {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { pages, ...meta } = doc;
@@ -25,13 +37,19 @@ export function toMeta(doc: UploadedDocument): UploadedDocumentMeta {
 }
 
 export async function saveDocument(doc: UploadedDocument, pdfBytes: Uint8Array): Promise<void> {
-  await storage().write(`${workspacePrefix(doc.workspaceId)}${doc.id}.pdf`, pdfBytes, "application/pdf");
-  await writeJson(recordKey(doc.workspaceId, doc.id), doc);
+  const key = recordKey(doc.workspaceId, doc.id);
+  await Promise.all([storage().write(`${workspacePrefix(doc.workspaceId)}${doc.id}.pdf`, pdfBytes, "application/pdf"), writeJson(key, doc)]);
+  remember(key, doc);
 }
 
 export async function getDocument(workspaceId: string, id: string): Promise<UploadedDocument | null> {
-  const doc = await readJson<UploadedDocument>(recordKey(workspaceId, id));
-  return doc && doc.workspaceId === workspaceId ? doc : null;
+  const key = recordKey(workspaceId, id);
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const doc = await readJson<UploadedDocument>(key);
+  if (!doc || doc.workspaceId !== workspaceId) return null;
+  remember(key, doc);
+  return doc;
 }
 
 export async function listDocuments(workspaceId: string): Promise<UploadedDocumentMeta[]> {
@@ -46,11 +64,19 @@ export async function listDocuments(workspaceId: string): Promise<UploadedDocume
 
 export async function deleteDocument(workspaceId: string, id: string): Promise<boolean> {
   const existed = (await getDocument(workspaceId, id)) !== null;
+  cache.delete(recordKey(workspaceId, id));
   await storage().remove([recordKey(workspaceId, id), `${workspacePrefix(workspaceId)}${id}.pdf`]);
   return existed;
 }
 
+/** Cheap existence check: one storage listing, no document reads. */
+export async function hasDocuments(workspaceId: string): Promise<boolean> {
+  return (await storage().list(workspacePrefix(workspaceId))).some((k) => k.endsWith(".json"));
+}
+
 /** Remove every upload of a workspace (used when reloading the demo). */
 export async function clearDocuments(workspaceId: string): Promise<void> {
-  await storage().remove(await storage().list(workspacePrefix(workspaceId)));
+  const prefix = workspacePrefix(workspaceId);
+  for (const k of [...cache.keys()]) if (k.startsWith(prefix)) cache.delete(k);
+  await storage().remove(await storage().list(prefix));
 }

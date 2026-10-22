@@ -227,3 +227,4 @@ describe("run storage isolation", () => {
     expect(again?.events[0].at).toBe(record.events[0].at);
   });
 });
+
