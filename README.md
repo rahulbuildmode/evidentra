@@ -1,137 +1,152 @@
 # Evidentra
 
-AI-assisted regulatory documentation copilot for Indian medical-device manufacturers. It helps a regulatory or quality person spot **missing or inconsistent evidence** in a product's documents before a human regulatory review.
+AI-assisted pre-submission documentation review for Indian medical-device manufacturers. Upload a product's PDFs, and Evidentra extracts the text, maps it to requirement topics, checks the documents against each other, and produces a gap report for a **human** regulatory reviewer.
 
-> **Safety note.** Evidentra is a document-review aid. It is not legal advice, does not certify compliance with the Medical Devices Rules, 2017, and does not file anything with CDSCO. The requirement list is an **unverified draft** (topics taken from CDSCO's public FAQ, no clause numbers asserted). Always confirm against official CDSCO sources.
+> **Not a compliance tool.** Evidentra does not give legal advice, does not certify compliance with the Medical Devices Rules, 2017, does not predict or guarantee CDSCO approval, and does not file anything. Every AI output is a suggestion until a person reviews it.
 
-## What works today
+## Quick start (local)
 
-| Page | Status |
-| --- | --- |
-| Overview | Live stats from the current workspace; shows AI key status |
-| Submission Workspace | Working form, auto-saved in your browser; every field is labelled *Unverified* until you tick it |
-| Documents | Upload up to 10 PDFs per workspace (max 4 MB each). Server checks type, size, empty files and the `%PDF-` signature, extracts text page by page, flags text-less PDFs as **needs OCR**, and records failed/damaged/password-protected PDFs with a clear error. "View text" shows the extracted text per PDF page |
-| Evidence Matrix | Pick a requirement set, then "Map evidence with AI". Each requirement shows verification status and source, expected evidence, evidence status (Found / Partial / Missing / Conflicting / Needs review), source document, page and quotation, recommended next action and human review. Code verifies every quotation and downgrades any status its verified quotes don't support. CSV export |
-| Consistency Checks | Compares device name, model, manufacturer, intended use, specifications, dates and revisions. **Exact comparisons are plain TypeScript** on quote-verified facts; **Gemini** proposes differences in meaning. Each finding shows the conflicting values, documents, pages, passages and a review status. Discrepancies are never labelled legal violations |
-| Gap Report | Pre-submission documentation gap report built live from the evidence matrix, consistency findings, uploads and human reviews: device details, scenario and verification status, evidence by status, unresolved applicability questions, cross-document discrepancies, items awaiting review, prioritised actions and an index of every cited file/page/quotation. Three CSV exports (evidence matrix, consistency findings, action list) and print to PDF |
-
-The **demo workspace is fictional**. "Load demo dossier" (or *Reload demo* on the Workspace page) uploads four made-up PDFs from `fixtures/demo-dossier/` and a hand-written, clearly labelled demo seed. Every seed quotation is re-verified by code against the PDF text on each load. The dossier demonstrates, against the synthetic checklist:
-
-- **Missing:** DEMO-06 biocompatibility evaluation (no such text anywhere in the dossier).
-- **Partial:** DEMO-05 risk analysis (hazards listed; "Risk control measures and residual risk evaluation: to be completed before design freeze.").
-- **Model-number mismatch:** DEMO-04 / consistency check ("Model number: AP-200A" in the device master file vs "Model: AP-2000A" in the IFU).
-
-Running real Gemini mapping on the dossier (both requirement sets) reproduced these results with all quotations verified.
-
-**Not built yet:** OCR for scanned PDFs, and AI-suggested evidence for the Evidence Matrix (it still shows demo-seeded suggestions only).
-
-## Run it locally
-
-Requires Node.js 20 or newer.
+Requires **Node.js 20+**.
 
 ```bash
 npm install
-cp .env.example .env.local   # then open .env.local and paste your key after GEMINI_API_KEY=
+cp .env.example .env.local      # then paste your Gemini key after GEMINI_API_KEY=
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open <http://localhost:3000>. The app opens on a **fictional demo workspace** that loads automatically.
 
-Useful commands:
-
-```bash
-npm run lint     # style/problem checks
-npm run build    # production build (also type-checks)
-```
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server on port 3000 |
+| `npm test` | Unit tests (Vitest): CSV safety, quote verification, evidence rules, consistency checks, report counts |
+| `npm run typecheck` | TypeScript check |
+| `npm run lint` | ESLint |
+| `npm run build` then `npm start` | Production build and server |
+| `npm run check:gemini` | Confirms your key can reach the configured Gemini model (prints no secrets) |
 
 ## Environment variables
 
-| Name | Purpose |
-| --- | --- |
-| `GEMINI_API_KEY` | Google Gemini API key. Read **only on the server** (`src/lib/gemini.ts`). Never prefix it with `NEXT_PUBLIC_`. |
-| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.8-flash` (stable Flash model, checked against Google's model list in Oct 2026). |
-| `EVIDENTRA_DATA_DIR` | Optional. Where uploads are stored. Default: `.data/` locally, `/tmp/evidentra-data` on Vercel. |
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | For AI features | Google Gemini API key. Read **only** in server code (`src/lib/gemini.ts`); never sent to the browser, never in API responses or logs. Do **not** prefix with `NEXT_PUBLIC_`. |
+| `GEMINI_MODEL` | No | Defaults to `gemini-3.8-flash` (stable Flash model, checked against Google's model list in Oct 2026). |
+| `EVIDENTRA_DATA_DIR` | No | Where uploads and results are stored. Default `.data/` locally, `/tmp/evidentra-data` on Vercel. |
 
-`.env.local` is ignored by Git. Never commit a real key. `.env.example` holds the variable name only.
+`.env.local` and `.data/` are git-ignored. `.env.example` contains variable names only. Without a key the app still runs; AI buttons are disabled with an explanation.
+
+## Demo script (about 5 minutes)
+
+1. **Submission Workspace → Start blank workspace.** Fill in device name, manufacturer, model number, class and pathway (each field stays "Unverified" until you tick it).
+2. **Documents → Upload PDFs.** Try `fixtures/tiny_text_test.pdf` (fictional; its two pages disagree on the model number) or the four PDFs in `fixtures/demo-dossier/`.
+3. **View text** to inspect the extracted text per PDF page. Scanned or damaged PDFs are marked "needs OCR" / "Extraction failed", never as successful.
+4. **Consistency Checks → Run AI analysis** (10–60 s). Every quotation is checked by code against the extracted text.
+5. **Evidence Matrix → Map evidence with AI.** Each requirement shows status, source file, page and quotation.
+6. Spot the **model-number mismatch** (exact code check + AI explanation) and any **missing** or **partial** evidence.
+7. **Review a finding:** mark reviewed, accept/reject, change status, add a note, or dismiss as a false positive with a reason.
+8. **Gap Report** — the full pre-submission report, built live from the data above.
+9. **Export CSV** — evidence matrix, consistency findings, or the prioritised action list.
+
+For a no-upload demo, use **Reload demo** on the Workspace page: four fictional PDFs plus a hand-written, clearly labelled seed that demonstrates one missing item (biocompatibility), one partial match (risk controls "to be completed") and one model-number mismatch (AP-200A vs AP-2000A). Seed quotations are re-verified against the PDF text on every load.
+
+## What each page does
+
+| Page | Purpose |
+| --- | --- |
+| Overview | Live counts and verification status |
+| Submission Workspace | Device details; per-field "verified by me" ticks; start blank / reload demo |
+| Documents | Upload up to 10 PDFs per workspace (≤ 4 MB each); validation; page-by-page text viewer |
+| Evidence Matrix | Requirement set selector; AI mapping; status, source, page, quotation, next action, human review; CSV |
+| Consistency Checks | Exact (code) comparisons + AI differences in meaning; dates and revisions; extracted facts; possible missing info; CSV |
+| Gap Report | Pre-submission documentation gap report with counts, applicability questions, discrepancies, review queue, prioritised actions and a citation index; three CSVs; print to PDF |
+
+## How results are kept honest
+
+- **Quote verification (code):** every AI citation is searched for in the extracted text — *verified*, *found on another page* (page corrected by code), *not found* or *unknown file*. Unverified citations are shown in red.
+- **Status caps (code):** "Found"/"Partial" need ≥ 1 verified quotation; "Conflicting" needs ≥ 2. Otherwise the status becomes "Needs review". "Missing" always means *not found in the uploaded text*, not proof of absence.
+- **Exact comparisons (code)** only use quote-verified facts. Gemini handles semantic comparison. Discrepancies are never called legal violations.
+- **Provenance labels** separate official requirements, synthetic demo items, AI suggestions, the demo seed, code checks and human-reviewed items.
+- **Untrusted input:** PDF text is wrapped as data; the model is told never to follow instructions inside it (a fixture contains a prompt-injection line to test this).
+
+## Requirement sets
+
+See **[REGULATORY_SOURCES.md](REGULATORY_SOURCES.md)**.
+
+- **MDR 2017 — Class B/C/D manufacturing licence documents (10 selected items)**, checked against the CDSCO-published MDR 2017 text *as amended to 14 Oct 2022*. Shown as applicable only when the workspace says Class B/C/D and a manufacturing-licence pathway.
+- **Synthetic demo checklist (FICTIONAL)** — for the demo dossier only.
 
 ## Human review
 
-On the Gap Report, Evidence Matrix and Consistency Checks pages a reviewer can mark an item reviewed, accept or reject an AI suggestion, change its status (evidence status for requirements; Open / Confirmed / Resolved for findings), add a note, or dismiss a false positive with a required reason. Reviews are saved in the browser **per workspace**, keyed by what the item is (requirement id, check id, or the AI item's topic and cited files) rather than by AI run, so they survive re-running the AI and regenerating the report. If the underlying evidence changes after a review, the item is flagged **Changed since review**. Limitation: reviews are not yet shared between browsers or users.
+Reviewers can mark reviewed, accept/reject AI suggestions, change status, add notes and dismiss false positives (reason required). Reviews are keyed by *what* an item is (not by AI run), so they survive re-running the AI; if the evidence changes afterwards the item shows **Changed since review**.
 
 ## CSV exports
 
-RFC 4180: every field is quoted, quotes are doubled, commas and newlines stay inside quotes, rows end with CRLF, and a UTF-8 BOM is added for Excel. Any cell that starts (after optional spaces) with `=`, `+`, `-`, `@`, tab or carriage return is prefixed with `'` so spreadsheets treat it as text, not a formula.
+RFC 4180 quoting (quotes doubled; commas and newlines kept inside quoted fields), CRLF rows, UTF-8 BOM. Cells starting with `=`, `+`, `-`, `@` (after optional spaces), tab or carriage return get a leading `'` to prevent spreadsheet formula injection.
 
-## Requirement sets and regulatory sources
+## Security notes
 
-See [REGULATORY_SOURCES.md](REGULATORY_SOURCES.md). Two sets exist and are never mixed:
+- API key: server-only; checked that it does not appear in tracked files, git history or the built client/server bundles.
+- Uploads: extension, size (4 MB), empty-file and `%PDF-` signature checks on the server; password-protected/damaged PDFs fail safely. File names are sanitised; IDs are restricted to `[a-z0-9-]` so they cannot escape the storage folder.
+- Privacy: files live outside `public/` and are never served by URL; APIs return text and metadata, never server paths. **There is no authentication** — anyone who can reach the server and knows a workspace ID can read that workspace. Use fictional or non-confidential documents.
 
-- **MDR 2017 — documents for a Class B/C/D manufacturing licence application (selected items).** Each item was checked against the CDSCO-published MDR 2017 text (as amended to 14 Oct 2022). Rows count as official only when the workspace says Class B/C/D and a manufacturing-licence pathway; otherwise they are labelled "reference only". Later amendments and the portal checklist were not reviewed.
-- **Synthetic demo checklist (FICTIONAL).** For the demo dossier only.
+## Storage, serverless limits and what production needs
 
-## AI analysis (Gemini)
+The prototype stores everything on the server's local disk (`.data/`): uploaded PDFs, extracted text, the latest AI analysis and evidence mapping per workspace. Human reviews are stored in the **browser** (localStorage) per workspace.
 
-`POST /api/analyze` sends the extracted text of a workspace's readable uploads to Gemini with Google's official `@google/genai` SDK, asks for JSON matching a schema, and validates the reply with Zod.
+On **Vercel** (serverless) this is not persistent:
 
-- **Key safety:** `GEMINI_API_KEY` is read only in server code. It is never sent to the browser or included in API responses or logs. Check your key and model with `npm run check:gemini` (prints no secrets).
-- **Traceability:** every fact and inconsistency carries filename, page and a quotation. Code then searches the real extracted text: *verified* (found on that page), *found on another page* (page corrected by code), *not found* or *unknown file*. Unverified items are shown in red with high uncertainty; nothing is hidden or silently fixed.
-- **Untrusted input:** PDF text is wrapped as data, and the model is told never to follow instructions inside it. The fixture `fixtures/device_description_AP-200A.pdf` contains a deliberate prompt-injection line to test this.
-- **Limits:** up to 40,000 characters per document and 150,000 in total (~40k tokens); output capped at 16,384 tokens; 90 s timeout; one run at a time per workspace.
-- **Errors:** missing key, rejected key, quota/rate limit (429), overload (503, retried twice), timeouts, blocked content and malformed output (retried once) each return a plain message. A failed run never overwrites the previous result.
-- **Not legal advice:** missing information means "not found in the uploaded documents". The model is told not to invent regulatory requirements; the requirement list remains a separate, unverified draft.
-- **Storage:** the latest result per workspace is saved in `.data/analyses/` (same limits as uploads below). Accept/Reject decisions are saved in your browser.
+- Only `/tmp` is writable; it is **wiped** when an instance stops and is **not shared** between instances. An upload can succeed and then be missing on the next request, and AI results can disappear.
+- The fictional demo workspace re-seeds itself on a fresh instance, so the demo keeps working — but user uploads and AI runs do not survive.
+- Request bodies over ~4.5 MB are rejected (hence the 4 MB per-file limit).
+- Long AI calls need the function duration allowed by your Vercel plan (`maxDuration = 120` is set on AI routes).
 
-Fictional test PDFs (with their HTML sources) are in `fixtures/`.
+For persistent production use you still need:
 
-## Upload storage and its limits
+1. **Private object storage** for PDFs (e.g. Vercel Blob with private access, Amazon S3, or Google Cloud Storage) — replace `src/lib/server/document-store.ts`.
+2. **A database** for extracted text, analyses, mappings and reviews (e.g. Postgres via Neon/Supabase) — replace `src/lib/server/analysis-store.ts` and move reviews from `src/lib/review-store.ts` to the server.
+3. **Authentication and per-organisation access control**, plus audit logging of review decisions.
 
-Uploads go through `POST /api/documents`. Text is extracted on the server with [`unpdf`](https://github.com/unjs/unpdf) (a server-friendly build of Mozilla's pdf.js). Each document gets a random ID and is saved as two files: the original PDF and a JSON record (workspace ID, filename, status, page count, page-by-page text).
+**For a live hackathon demo, run locally** (`npm run dev` or `npm run build && npm start`) for reliable uploads.
 
-- **Where:** `.data/uploads/<workspaceId>/` in the project folder. This is git-ignored and **not** inside `public/`, so files are never served as static URLs. The API returns only metadata and text, never server file paths.
-- **Privacy limit:** there are no user accounts. Anyone who can reach the running server and knows a workspace ID can list its documents. Use fictional or non-confidential PDFs.
-- **Workspace link:** the workspace ID lives in your browser's localStorage. Clearing browser data loses the link (the files stay in `.data/` until you delete them). "Start blank workspace" creates a new ID with an empty folder.
-- **Page numbers** are PDF page positions (1, 2, 3…), not the printed page labels.
-- **Text quality:** layout, tables and reading order may be imperfect. Scanned pages produce no text and are flagged "needs OCR".
+## Deploying
 
-### On Vercel
+### GitHub
 
-Vercel functions have a read-only filesystem except `/tmp`, which is temporary and **not shared between server instances**. Uploads will appear to work and then disappear (or be missing on the next request). The 4 MB per-file limit also exists because Vercel rejects request bodies over ~4.5 MB. For a real deployment, replace `src/lib/server/document-store.ts` with durable private storage (for example Vercel Blob with private access, or S3) plus authentication.
+```bash
+gh repo create <your-account>/evidentra --private --source . --push
+```
 
-## Deploy to Vercel
+(or create an empty repository on github.com and `git remote add origin … && git push -u origin main`). `.env.local` and `.data/` are ignored and will not be pushed.
 
-1. Push this repo to GitHub.
-2. In Vercel, **Add New → Project**, import the repo (framework is detected as Next.js).
-3. Under **Settings → Environment Variables**, add `GEMINI_API_KEY`.
-4. Deploy.
+### Vercel
+
+1. Vercel → **Add New → Project** → import the GitHub repository (framework: Next.js; defaults are fine).
+2. **Settings → Environment Variables:** add `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`).
+3. Deploy. Read the storage limits above before relying on uploads.
+
+## Known limitations
+
+- No OCR: scanned PDFs are flagged, not read.
+- Reviews are per browser; no reviewer identity or shared review state.
+- Official requirement set covers 10 selected items for one scenario; amendments after Oct 2022 and the online portal checklist were not reviewed.
+- Page numbers are PDF page positions, not printed page labels; text extraction can scramble tables.
+- One AI run at a time per workspace per server process; Gemini can return 503 "high demand" (retried twice).
+- Print layout of the Gap Report has not been checked in detail.
 
 ## Project layout
 
 ```
-src/app/                 pages (one folder per dashboard page) and API routes
-src/app/api/health       reports whether a key is configured (never returns the key)
-src/app/api/analyze      runs / returns Gemini analysis for a workspace
-src/components/          AppShell (sidebar) and small UI pieces
-src/lib/demo-data.ts     the fictional demo workspace
-src/lib/requirements.ts  draft requirement topics + source links
-src/lib/store.ts         browser-only state (localStorage), no database
-src/lib/csv.ts           safe CSV writer + the three exports
-src/lib/report.ts        gap report builder (counts, questions, prioritised actions)
-src/lib/review.ts        review model and stable keys; review-store.ts saves reviews per workspace
-src/lib/gemini.ts        server-only Gemini client helper
-src/lib/server/          PDF extraction, private document/analysis store, Gemini prompt + call, quote verifier
-src/lib/analysis.ts      Zod schema for model output + result types
-src/lib/mapping.ts       evidence-mapping schema, statuses and the code rules that cap them
-src/lib/checks.ts        deterministic cross-document comparisons
-src/lib/server/gemini-map.ts   requirement-to-evidence mapping prompt
-src/lib/server/demo-seed.ts    hand-written demo seed (quotes verified at load)
-fixtures/demo-dossier/   fictional demo PDFs and their HTML sources
-src/components/AiAnalysisPanel.tsx  AI results UI with review controls
-src/lib/uploads.ts       shared upload types, limits and id checks
-src/app/api/documents    upload/list (route.ts) and view/delete ([id]/route.ts)
+src/app/                      pages and API routes (api/documents, api/analyze, api/requirements/map, api/demo/load, api/health)
+src/components/               AppShell, ReviewPanel, evidence/citation views, AI tables
+src/lib/requirements.ts       requirement sets + applicability check
+src/lib/analysis.ts           Zod schema for AI analysis output
+src/lib/mapping.ts            evidence statuses and the code rules that cap them
+src/lib/checks.ts             deterministic consistency comparisons
+src/lib/report.ts             gap report builder (counts, questions, prioritised actions)
+src/lib/review.ts, review-store.ts   review model (stable keys) and browser storage
+src/lib/csv.ts                safe CSV writer and the three exports
+src/lib/server/               PDF extraction, storage, Gemini calls, quote verifier, demo loader
+fixtures/                     fictional test PDFs (demo dossier, mismatch test, blank scan)
+tests/                        Vitest unit tests
+docs/research/                secondary research report and market model
 ```
-
-## Next steps
-
-1. Review MDR amendments after Oct 2022 and the portal checklist, then extend `REGULATORY_SOURCES.md` and the official set.
-2. Store reviews on the server with reviewer identity (they live in the browser today).
-3. Durable private storage and login before any real deployment.

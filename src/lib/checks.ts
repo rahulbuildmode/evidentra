@@ -56,7 +56,12 @@ export function verifiedFactsOf(result: AnalysisResult | null): VerifiedFact[] {
   return out;
 }
 
-const cite = (f: VerifiedFact): FindingCitation => ({ filename: f.filename, page: f.page, quote: f.quote, value: f.value });
+const cite = (f: VerifiedFact): FindingCitation => ({
+  filename: f.filename,
+  page: f.page,
+  quote: f.quote,
+  value: f.value,
+});
 
 /** Same field across documents must match after normalising. */
 function compareAcrossDocuments(
@@ -64,10 +69,19 @@ function compareAcrossDocuments(
   category: string,
   label: string,
   normalize: (s: string) => string,
-  mismatch: { severity: Finding["severity"]; note: string },
+  mismatch: {
+    severity: Finding["severity"];
+    note: string;
+    withinDocument?: boolean;
+  },
 ): Finding[] {
   const group = facts.filter((f) => f.category === category);
-  if (new Set(group.map((f) => f.filename)).size < 2) return [];
+  const fileCount = new Set(group.map((f) => f.filename)).size;
+  // Identifiers must also agree between passages of the same document; free text only across documents.
+  if (group.length < 2 || (fileCount < 2 && !mismatch.withinDocument))
+    return [];
+  const where =
+    fileCount > 1 ? "across documents" : `within ${group[0].filename}`;
   const keys = new Set(group.map((f) => normalize(f.value)));
   if (keys.size > 1) {
     const values = [...new Set(group.map((f) => f.value))];
@@ -76,7 +90,7 @@ function compareAcrossDocuments(
         id: `cc-${category}-mismatch`,
         check: label,
         severity: mismatch.severity,
-        title: `${label} differs across documents`,
+        title: `${label} differs ${where}`,
         detail: `${values.length} different values: ${values.map((v) => `"${v}"`).join(" vs ")}. ${mismatch.note}`,
         citations: group.map(cite),
       },
@@ -102,7 +116,11 @@ function compareAcrossDocuments(
 function compareSpecifications(facts: VerifiedFact[]): Finding[] {
   const specs = facts.filter((f) => f.category === "technical_specification");
   const byParam = new Map<string, VerifiedFact[]>();
-  for (const f of specs) byParam.set(normalizeName(f.label), [...(byParam.get(normalizeName(f.label)) ?? []), f]);
+  for (const f of specs)
+    byParam.set(normalizeName(f.label), [
+      ...(byParam.get(normalizeName(f.label)) ?? []),
+      f,
+    ]);
   const out: Finding[] = [];
   for (const [key, group] of byParam) {
     if (new Set(group.map((f) => f.filename)).size < 2) continue;
@@ -141,14 +159,22 @@ function compareRevisions(facts: VerifiedFact[]): Finding[] {
 }
 
 function daysBetween(fromISO: string, toISO: string): number {
-  return Math.round((Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) / 86_400_000);
+  return Math.round(
+    (Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) /
+      86_400_000,
+  );
 }
 
 /** "Valid until"/expiry dates (normalised and confirmed in the quote by the server) vs today. */
 function checkValidityDates(facts: VerifiedFact[], today: string): Finding[] {
   const out: Finding[] = [];
   for (const f of facts) {
-    if (f.category !== "document_date" || !/valid|expir/i.test(f.label) || !f.normalizedDate) continue;
+    if (
+      f.category !== "document_date" ||
+      !/valid|expir/i.test(f.label) ||
+      !f.normalizedDate
+    )
+      continue;
     const days = daysBetween(today, f.normalizedDate);
     if (days < 0) {
       out.push({
@@ -177,7 +203,9 @@ function workspaceVsDocuments(facts: VerifiedFact[], ws: Workspace): Finding[] {
   const entered = ws.modelNumber.value.trim();
   const models = facts.filter((f) => f.category === "model_number");
   if (!entered || models.length === 0) return [];
-  const off = models.filter((f) => normalizeIdentifier(f.value) !== normalizeIdentifier(entered));
+  const off = models.filter(
+    (f) => normalizeIdentifier(f.value) !== normalizeIdentifier(entered),
+  );
   if (off.length === 0) return [];
   return [
     {
@@ -192,25 +220,56 @@ function workspaceVsDocuments(facts: VerifiedFact[], ws: Workspace): Finding[] {
 }
 
 /** `today` is null until the browser clock is known; date checks are skipped in that case. */
-export function crossCheck(result: AnalysisResult | null, ws: Workspace, today: string | null): Finding[] {
+export function crossCheck(
+  result: AnalysisResult | null,
+  ws: Workspace,
+  today: string | null,
+): Finding[] {
   const facts = verifiedFactsOf(result);
   return [
-    ...compareAcrossDocuments(facts, "model_number", "Model number", normalizeIdentifier, {
-      severity: "fail",
-      note: "A reviewer should confirm which value is correct.",
-    }),
-    ...compareAcrossDocuments(facts, "device_name", "Device name", normalizeName, {
-      severity: "fail",
-      note: "A reviewer should confirm which name is correct.",
-    }),
-    ...compareAcrossDocuments(facts, "manufacturer_name", "Manufacturer name", normalizeName, {
-      severity: "fail",
-      note: "A reviewer should confirm the legal manufacturer name.",
-    }),
-    ...compareAcrossDocuments(facts, "intended_use", "Intended use wording", normalizeName, {
-      severity: "warn",
-      note: "This is an exact-text comparison; see the AI findings for whether the meaning differs.",
-    }),
+    ...compareAcrossDocuments(
+      facts,
+      "model_number",
+      "Model number",
+      normalizeIdentifier,
+      {
+        severity: "fail",
+        withinDocument: true,
+        note: "A reviewer should confirm which value is correct.",
+      },
+    ),
+    ...compareAcrossDocuments(
+      facts,
+      "device_name",
+      "Device name",
+      normalizeName,
+      {
+        severity: "fail",
+        withinDocument: true,
+        note: "A reviewer should confirm which name is correct.",
+      },
+    ),
+    ...compareAcrossDocuments(
+      facts,
+      "manufacturer_name",
+      "Manufacturer name",
+      normalizeName,
+      {
+        severity: "fail",
+        withinDocument: true,
+        note: "A reviewer should confirm the legal manufacturer name.",
+      },
+    ),
+    ...compareAcrossDocuments(
+      facts,
+      "intended_use",
+      "Intended use wording",
+      normalizeName,
+      {
+        severity: "warn",
+        note: "This is an exact-text comparison; see the AI findings for whether the meaning differs.",
+      },
+    ),
     ...compareSpecifications(facts),
     ...compareRevisions(facts),
     ...(today ? checkValidityDates(facts, today) : []),

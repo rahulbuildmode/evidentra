@@ -1,4 +1,5 @@
 import { listDocuments } from "@/lib/server/document-store";
+import { ensureDemoLoaded } from "@/lib/server/demo-loader";
 import { ingestPdf } from "@/lib/server/ingest";
 import { isSafeId, MAX_UPLOAD_BYTES, MAX_UPLOADS_PER_WORKSPACE } from "@/lib/uploads";
 
@@ -14,6 +15,7 @@ function cleanFilename(name: string): string {
 export async function GET(request: Request) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId");
   if (!isSafeId(workspaceId)) return fail(400, "Missing or invalid workspace id.");
+  await ensureDemoLoaded(workspaceId);
   return Response.json({ documents: await listDocuments(workspaceId) });
 }
 

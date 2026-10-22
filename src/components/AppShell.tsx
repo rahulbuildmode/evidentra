@@ -64,9 +64,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="no-print border-b border-warn/20 bg-warn-soft px-5 py-2 text-xs text-warn">
-          Regulatory content here is <strong>unverified</strong>: it follows India&apos;s Medical
-          Devices Rules, 2017 and CDSCO guidance only as a draft topic list. Confirm everything
-          against official CDSCO sources.
+          <strong>Not a compliance tool.</strong> Requirements are labelled as official (checked against
+          MDR 2017 text as amended to 14 Oct 2022, for a limited scenario) or synthetic demo data. AI
+          output is a suggestion until a person reviews it. Confirm everything against current CDSCO sources.
         </div>
         <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
       </div>

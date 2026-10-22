@@ -114,6 +114,7 @@ export default function WorkspacePage() {
                 <label className="mt-2 flex items-center gap-2 text-xs text-ink-soft">
                   <input
                     type="checkbox"
+                    aria-label={`Mark ${f.label.toLowerCase()} as verified`}
                     checked={field.verified}
                     disabled={!field.value.trim() || field.value === "Not yet decided" || field.value === "Not yet classified"}
                     onChange={(e) => actions.setVerified(f.key, e.target.checked)}

@@ -1,6 +1,7 @@
 import { geminiModel, isGeminiConfigured } from "@/lib/gemini";
 import { getAnalysis, saveAnalysis } from "@/lib/server/analysis-store";
 import { AnalysisError, analyzeDocuments } from "@/lib/server/gemini-analyze";
+import { ensureDemoLoaded } from "@/lib/server/demo-loader";
 import { runExclusive } from "@/lib/server/run-lock";
 import { loadReadableDocuments } from "@/lib/server/workspace-docs";
 import { isSafeId } from "@/lib/uploads";
@@ -13,6 +14,7 @@ const fail = (status: number, code: string, error: string) => Response.json({ co
 export async function GET(request: Request) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId");
   if (!isSafeId(workspaceId)) return fail(400, "bad_request", "Missing or invalid workspace id.");
+  await ensureDemoLoaded(workspaceId);
   return Response.json({
     aiConfigured: isGeminiConfigured(),
     model: geminiModel(),

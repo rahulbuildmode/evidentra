@@ -1,6 +1,7 @@
 import { getAnalysis, getMapping, saveMapping } from "@/lib/server/analysis-store";
 import { AnalysisError } from "@/lib/server/gemini-common";
 import { mapRequirements } from "@/lib/server/gemini-map";
+import { ensureDemoLoaded } from "@/lib/server/demo-loader";
 import { runExclusive } from "@/lib/server/run-lock";
 import { loadReadableDocuments } from "@/lib/server/workspace-docs";
 import { getRequirementSet } from "@/lib/requirements";
@@ -14,6 +15,7 @@ const fail = (status: number, code: string, error: string) => Response.json({ co
 export async function GET(request: Request) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId");
   if (!isSafeId(workspaceId)) return fail(400, "bad_request", "Missing or invalid workspace id.");
+  await ensureDemoLoaded(workspaceId);
   return Response.json({ mapping: await getMapping(workspaceId), hasAnalysis: (await getAnalysis(workspaceId)) !== null });
 }
 

@@ -10,8 +10,10 @@ import { PROVENANCE_LABEL, type GapReport, type ReportCitation } from "./report"
  */
 export function csvCell(v: string | number | boolean | null | undefined): string {
   let s = v === null || v === undefined ? "" : String(v);
+  // Check before normalising line endings: a leading tab/CR is itself a trigger, and "\s*" must not swallow it.
+  const risky = /^[\t\r]/.test(s) || /^[  ]*[=+\-@]/.test(s);
   s = s.replace(/\r\n?/g, "\n");
-  if (/^\s*[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (risky) s = `'${s}`;
   return `"${s.replace(/"/g, '""')}"`;
 }
 
