@@ -6,6 +6,7 @@ import { Badge, Card, DemoNotice, PageHeader } from "@/components/ui";
 import { runChecks } from "@/lib/checks";
 import { REQUIREMENTS, REQUIREMENT_SET } from "@/lib/requirements";
 import { useAppState, useToday } from "@/lib/store";
+import { useUploads } from "@/lib/use-uploads";
 
 function useAiStatus() {
   const [status, setStatus] = useState<"checking" | "ready" | "missing" | "error">("checking");
@@ -29,6 +30,7 @@ function useAiStatus() {
 export default function OverviewPage() {
   const state = useAppState();
   const ai = useAiStatus();
+  const { uploads } = useUploads(state.workspaceId);
   const today = useToday();
   const findings = runChecks(state, today);
   const fails = findings.filter((f) => f.severity === "fail").length;
@@ -36,7 +38,7 @@ export default function OverviewPage() {
   const reviewed = Object.values(state.decisions).filter((d) => d !== "undecided").length;
 
   const stats = [
-    { label: "Documents", value: state.documents.length, href: "/documents" },
+    { label: "Documents", value: state.documents.length + uploads.length, href: "/documents" },
     { label: "Requirements with suggested evidence", value: `${covered} / ${REQUIREMENTS.length}`, href: "/evidence-matrix" },
     { label: "Blocking inconsistencies", value: fails, href: "/consistency-checks" },
     { label: "Human reviews done", value: `${reviewed} / ${REQUIREMENTS.length}`, href: "/evidence-matrix" },

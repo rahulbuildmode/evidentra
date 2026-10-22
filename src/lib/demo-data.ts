@@ -129,7 +129,10 @@ export const DEMO_EVIDENCE: EvidenceLink[] = [
   },
 ];
 
+export const DEMO_WORKSPACE_ID = "demo-workspace";
+
 export const DEMO_STATE: AppState = {
+  workspaceId: DEMO_WORKSPACE_ID,
   isDemo: true,
   workspace: DEMO_WORKSPACE,
   documents: DEMO_DOCUMENTS,
@@ -139,6 +142,7 @@ export const DEMO_STATE: AppState = {
 };
 
 export const BLANK_STATE: AppState = {
+  workspaceId: "blank-workspace",
   isDemo: false,
   workspace: BLANK_WORKSPACE,
   documents: [],

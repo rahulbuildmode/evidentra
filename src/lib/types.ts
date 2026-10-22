@@ -67,6 +67,8 @@ export interface EvidenceLink {
 export type Decision = "undecided" | "approved" | "rejected";
 
 export interface AppState {
+  /** Uploads on the server are stored per workspace id. */
+  workspaceId: string;
   isDemo: boolean;
   workspace: Workspace;
   documents: DocumentRecord[];

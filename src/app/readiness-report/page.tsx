@@ -6,6 +6,7 @@ import { evidenceMatrixCsv } from "@/lib/csv";
 import { downloadCsv } from "@/lib/download";
 import { REQUIREMENTS, REQUIREMENT_SET } from "@/lib/requirements";
 import { useAppState, useToday } from "@/lib/store";
+import { useUploads } from "@/lib/use-uploads";
 import type { WorkspaceFieldKey } from "@/lib/types";
 
 const LABELS: Record<WorkspaceFieldKey, string> = {
@@ -20,6 +21,7 @@ const LABELS: Record<WorkspaceFieldKey, string> = {
 export default function ReadinessReportPage() {
   const state = useAppState();
   const today = useToday();
+  const { uploads } = useUploads(state.workspaceId);
   const findings = runChecks(state, today);
   const unverified = (Object.keys(LABELS) as WorkspaceFieldKey[]).filter((k) => !state.workspace[k].verified);
   const missing = state.evidence.filter((e) => e.suggestedStatus === "not_found");
@@ -65,7 +67,10 @@ export default function ReadinessReportPage() {
 
         <Card title="Summary">
           <ul className="space-y-2 text-sm text-ink-soft">
-            <li>Documents listed: {state.documents.length}</li>
+            <li>
+              Documents listed: {state.documents.length + uploads.length} (
+              {uploads.filter((u) => u.status === "needs_ocr" || u.status === "failed").length} uploads without usable text)
+            </li>
             <li>Inconsistencies needing attention: {findings.filter((f) => f.severity === "fail").length}</li>
             <li>Warnings and notes: {findings.filter((f) => f.severity !== "fail").length}</li>
             <li>

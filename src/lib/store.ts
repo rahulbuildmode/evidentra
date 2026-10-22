@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { BLANK_STATE, DEMO_STATE } from "./demo-data";
 import { todayISO } from "./checks";
-import type { AppState, Decision, DocumentRecord, WorkspaceFieldKey } from "./types";
+import type { AppState, Decision, WorkspaceFieldKey } from "./types";
 
 const KEY = "evidentra:v1";
 const listeners = new Set<() => void>();
@@ -21,7 +21,14 @@ function read(): AppState {
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as AppState;
-      if (parsed && parsed.workspace && Array.isArray(parsed.documents)) state = parsed;
+      if (parsed && parsed.workspace && Array.isArray(parsed.documents)) {
+        // Older saves had no workspace id and kept metadata-only upload records; uploads now live on the server.
+        state = {
+          ...parsed,
+          workspaceId: parsed.workspaceId ?? (parsed.isDemo ? DEMO_STATE.workspaceId : BLANK_STATE.workspaceId),
+          documents: parsed.documents.filter((d) => d.source === "demo"),
+        };
+      }
     } catch {
       /* corrupt saved data: fall back to the demo */
     }
@@ -67,11 +74,8 @@ export const actions = {
     write(DEMO_STATE);
   },
   startBlank() {
-    write(BLANK_STATE);
-  },
-  addUpload(d: DocumentRecord) {
-    const s = read();
-    write({ ...s, documents: [...s.documents, d] });
+    // A fresh id gives the new workspace its own, empty upload folder on the server.
+    write({ ...BLANK_STATE, workspaceId: `ws-${crypto.randomUUID()}` });
   },
   removeDocument(id: string) {
     const s = read();
