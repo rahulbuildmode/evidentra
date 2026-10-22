@@ -7,12 +7,16 @@ import type { AiTrace } from "@/lib/server/gemini-common";
 /** generateStructured with the Gemini client replaced by a scripted fake (no network). */
 
 const replies: (() => unknown)[] = [];
+const sentTo: string[] = [];
+const env = { fallbacks: [] as string[] };
 vi.mock("@/lib/gemini", () => ({
   geminiModel: () => "test-model",
+  geminiFallbackModels: () => env.fallbacks,
   isGeminiConfigured: () => true,
   getGeminiClient: () => ({
     models: {
-      generateContent: async () => {
+      generateContent: async ({ model }: { model: string }) => {
+        sentTo.push(model);
         const next = replies.shift();
         if (!next) throw new Error("no scripted reply");
         return next();
@@ -30,6 +34,8 @@ const trace = (): AiTrace => ({ stage: "mapping", attempts: [] });
 
 beforeEach(() => {
   replies.length = 0;
+  sentTo.length = 0;
+  env.fallbacks = [];
 });
 
 describe("generateStructured", () => {
@@ -99,5 +105,52 @@ describe("429 handling", () => {
     const t = trace();
     await expect(generateStructured(MappingOutputSchema, "sys", "p", t)).rejects.toMatchObject({ code: "quota", message: expect.stringMatching(/daily request quota.*limit 20 per day, free tier/) });
     expect(t.attempts).toHaveLength(1);
+  });
+});
+
+describe("model fallback (GEMINI_FALLBACK_MODELS)", () => {
+  const day = `{"error":{"code":429,"message":"You exceeded your current quota. limit: 20\\nPlease retry in 19h1m0s.","details":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}`;
+  const minute = `{"error":{"code":429,"message":"You exceeded your current quota. limit: 5\\nPlease retry in 50s.","details":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}}`;
+  const good = ok(JSON.stringify({ rows: [] }));
+
+  it("when the daily quota is used up, tries the next model once and records the switch", async () => {
+    const { generateStructured } = await import("@/lib/server/gemini-common");
+    env.fallbacks = ["backup-model"];
+    replies.push(apiError(429, day), good);
+    const seen: { from: string; to: string }[] = [];
+    const t = { ...trace(), onFallback: (f: { from: string; to: string }) => seen.push(f) };
+    const r = await generateStructured(MappingOutputSchema, "sys", "p", t);
+    expect(sentTo).toEqual(["test-model", "backup-model"]);
+    expect(r.model).toBe("backup-model");
+    expect(t.model).toBe("backup-model");
+    expect(seen).toEqual([{ from: "test-model", to: "backup-model", reason: "Daily quota for test-model is used up" }]);
+    expect(t.attempts.map((a) => [a.attempt, a.model, a.httpStatus])).toEqual([
+      [1, "test-model", 429],
+      [2, "backup-model", 200],
+    ]);
+  });
+
+  it("each fallback is tried once; when all are used up the last error names the last model", async () => {
+    const { generateStructured } = await import("@/lib/server/gemini-common");
+    env.fallbacks = ["b1", "b2"];
+    replies.push(apiError(429, day), apiError(429, day), apiError(429, day));
+    const t = trace();
+    await expect(generateStructured(MappingOutputSchema, "sys", "p", t)).rejects.toMatchObject({ code: "quota", message: expect.stringContaining('"b2"') });
+    expect(sentTo).toEqual(["test-model", "b1", "b2"]);
+    expect(t.fallbacks?.map((f) => f.to)).toEqual(["b1", "b2"]);
+  });
+
+  it("does not switch model for a per-minute limit, an overload or without a fallback list", async () => {
+    const { generateStructured } = await import("@/lib/server/gemini-common");
+    env.fallbacks = ["backup-model"];
+    replies.push(apiError(429, minute));
+    await expect(generateStructured(MappingOutputSchema, "sys", "p", trace())).rejects.toMatchObject({ code: "rate_limit" });
+    expect(sentTo).toEqual(["test-model"]);
+
+    sentTo.length = 0;
+    env.fallbacks = [];
+    replies.push(apiError(429, day));
+    await expect(generateStructured(MappingOutputSchema, "sys", "p", trace())).rejects.toMatchObject({ code: "quota" });
+    expect(sentTo).toEqual(["test-model"]);
   });
 });

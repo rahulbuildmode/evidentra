@@ -34,6 +34,7 @@ Open <http://localhost:3000>. The app opens on your own empty dossier; **Try the
 | --- | --- | --- |
 | `GEMINI_API_KEY` | For AI features | Google Gemini API key. Read **only** in server code (`src/lib/gemini.ts`); never sent to the browser, never in API responses or logs. Do **not** prefix with `NEXT_PUBLIC_`. |
 | `GEMINI_MODEL` | No | Defaults to `gemini-3.8-flash` (stable Flash model, checked against Google's model list in Oct 2026). |
+| `GEMINI_FALLBACK_MODELS` | No | Comma-separated models tried in order, each once, **only** when a model's daily quota is used up (e.g. `gemini-3.5-flash-lite,gemini-flash-lite-latest`). Each switch is recorded in the Engine Room. Per-minute limits are waited out instead; overloads are retried on the same model. |
 | `EVIDENTRA_DATA_DIR` | No | Where uploads and results are stored. Default `.data/` locally, `/tmp/evidentra-data` on Vercel. |
 
 `.env.local` and `.data/` are git-ignored. `.env.example` contains variable names only. Without a key the app still runs; AI buttons are disabled with an explanation.

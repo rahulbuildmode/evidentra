@@ -151,10 +151,12 @@ function aiTrace(rec: RunRecorder, stage: AiTrace["stage"]): AiTrace {
   return {
     stage,
     attempts: [],
-    onRequest: (n) => rec.event("ai_request_started", step, n === 1 ? "Request sent to Gemini" : `Request ${n} sent (retry)`, { attempt: n }),
+    onRequest: (n, model) => rec.event("ai_request_started", step, `${n === 1 ? "Request sent" : `Request ${n} sent`} to ${model}`, { attempt: n, model }),
+    onFallback: (f) => rec.event("ai_fallback", step, `${f.reason} — falling back to ${f.to}`, { from: f.from, to: f.to }),
     onAttempt: (a) =>
       rec.event("ai_attempt", step, a.note ?? (a.outcome === "ok" ? "Valid response received" : a.outcome), {
         attempt: a.attempt,
+        model: a.model,
         outcome: a.outcome,
         httpStatus: a.httpStatus,
         durationMs: a.durationMs,
@@ -165,7 +167,14 @@ function aiTrace(rec: RunRecorder, stage: AiTrace["stage"]): AiTrace {
 }
 
 function stageRecord(t: AiTrace, errorCode: string | null): AiStageRecord {
-  return { stage: t.stage, model: t.model ?? "Not recorded", attempts: t.attempts, output: errorCode ? null : (t.output ?? null), errorCode };
+  return {
+    stage: t.stage,
+    model: t.model ?? "Not recorded",
+    ...(t.fallbacks?.length ? { fallback: t.fallbacks } : {}),
+    attempts: t.attempts,
+    output: errorCode ? null : (t.output ?? null),
+    errorCode,
+  };
 }
 
 const errorOf = (e: unknown) =>

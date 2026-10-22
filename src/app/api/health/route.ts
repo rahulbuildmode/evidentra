@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { geminiModel, getGeminiClient, isGeminiConfigured } from "@/lib/gemini";
+import { geminiFallbackModels, geminiModel, getGeminiClient, isGeminiConfigured } from "@/lib/gemini";
 import { toApiError } from "@/lib/server/gemini-common";
 
 /**
@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     aiConfigured,
     keyVariable: "GEMINI_API_KEY",
     model: geminiModel(),
+    fallbackModels: geminiFallbackModels(),
     environment: process.env.VERCEL_ENV ?? (process.env.NODE_ENV === "production" ? "production (local)" : "development"),
   };
   if (new URL(request.url).searchParams.get("probe") !== "1") return Response.json(base);

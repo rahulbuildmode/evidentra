@@ -107,7 +107,7 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
                 {s.stage === "analysis" ? "AI request 1" : "AI request 2"} · network request {a.attempt}
               </div>
               <div className="text-xs text-mute">
-                {fmtTime(a.startedAt)} · {fmtMs(a.durationMs)} · HTTP {a.httpStatus ?? "no response"} · {a.outcome.replace("_", " ")} · model {s.model}
+                {fmtTime(a.startedAt)} · {fmtMs(a.durationMs)} · HTTP {a.httpStatus ?? "no response"} · {a.outcome.replace("_", " ")} · model {a.model ?? s.model}
               </div>
               <div className="text-xs text-mute">
                 Tokens: {a.promptTokens === null && a.outputTokens === null ? "Token usage unavailable" : `${a.promptTokens ?? "?"} in / ${a.outputTokens ?? "?"} out`}
@@ -164,7 +164,7 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
 
 function Timeline({ view, record }: { view: RunView; record: RunRecord | null }) {
   // `record` is passed only once the run (or its replay) has finished.
-  const attempts = (step: StepKey) => view.events.filter((e) => e.step === step && (e.type === "ai_request_started" || e.type === "ai_attempt"));
+  const attempts = (step: StepKey) => view.events.filter((e) => e.step === step && (e.type === "ai_request_started" || e.type === "ai_attempt" || e.type === "ai_fallback"));
   return (
     <ol className="space-y-4" aria-live="polite" aria-label="Pipeline steps">
       {STEP_KEYS.map((k) => {
@@ -191,9 +191,11 @@ function Timeline({ view, record }: { view: RunView; record: RunRecord | null })
                 <ul className="mt-1 space-y-0.5 border-l border-porcelain/15 pl-3 font-mono text-[11px] text-porcelain/55">
                   {ai.map((e) => (
                     <li key={e.seq}>
-                      {e.type === "ai_request_started"
-                        ? `→ ${e.message}`
-                        : `← HTTP ${e.data?.httpStatus ?? "—"} · ${fmtMs(typeof e.data?.durationMs === "number" ? e.data.durationMs : null)} · ${String(e.data?.outcome ?? "").replace("_", " ")}`}
+                      {e.type === "ai_fallback"
+                        ? `⇢ ${e.message}`
+                        : e.type === "ai_request_started"
+                          ? `→ ${e.message}`
+                          : `← HTTP ${e.data?.httpStatus ?? "—"} · ${fmtMs(typeof e.data?.durationMs === "number" ? e.data.durationMs : null)} · ${String(e.data?.outcome ?? "").replace("_", " ")}`}
                     </li>
                   ))}
                 </ul>
@@ -244,11 +246,16 @@ function Metrics({ record, open }: { record: RunRecord; open: (l: ListKind) => v
               <Count n={retries} label="retries" />
             </div>
             <p className="px-2 text-xs text-porcelain/55">
-              Model {record.ai[0].model} ·{" "}
+              Model {[...new Set(record.ai.map((s) => s.model))].join(", ")} ·{" "}
               {tokIn.length === 0 && tokOut.length === 0
                 ? "Token usage unavailable"
                 : `${tokIn.reduce((a, b) => a + b, 0).toLocaleString()} input / ${tokOut.reduce((a, b) => a + b, 0).toLocaleString()} output tokens (reported by the Gemini API)`}
             </p>
+            {record.ai.flatMap((s) => s.fallback ?? []).map((f, i) => (
+              <p key={i} className="px-2 text-xs text-lime">
+                Fallback: {f.reason}, so {f.to} was used instead of {f.from}.
+              </p>
+            ))}
           </>
         )}
       </div>

@@ -2,7 +2,7 @@ import { ApiError, ThinkingLevel } from "@google/genai";
 import { z } from "zod";
 import type { AnalysisErrorCode, AnalysisResult } from "../analysis";
 import type { AiAttempt } from "../run";
-import { geminiModel, getGeminiClient, isGeminiConfigured } from "../gemini";
+import { geminiFallbackModels, geminiModel, getGeminiClient, isGeminiConfigured } from "../gemini";
 import type { UploadedDocument } from "../uploads";
 
 /** Shared Gemini plumbing: input limits, prompt framing, schema, retries and error mapping. */
@@ -59,7 +59,7 @@ export function buildDocumentsPrompt(docs: UploadedDocument[]) {
   return { prompt: parts.join("\n\n"), sent };
 }
 
-export function toApiError(err: unknown): AnalysisError {
+export function toApiError(err: unknown, model: string = geminiModel()): AnalysisError {
   if (err instanceof ApiError) {
     const msg = err.message || "";
     if (err.status === 400 && /API[_ ]KEY|api key/i.test(msg))
@@ -67,7 +67,7 @@ export function toApiError(err: unknown): AnalysisError {
     if (err.status === 401 || err.status === 403)
       return new AnalysisError("invalid_key", 401, "The Gemini API key is not authorised for this request.");
     if (err.status === 404)
-      return new AnalysisError("model_not_found", 502, `The model "${geminiModel()}" was not found for this key.`);
+      return new AnalysisError("model_not_found", 502, `The model "${model}" was not found for this key.`);
     if (err.status === 429) {
       const q = quotaInfo(msg);
       if (q.window === "minute")
@@ -76,7 +76,7 @@ export function toApiError(err: unknown): AnalysisError {
         return new AnalysisError(
           "quota",
           429,
-          `The daily request quota for model "${geminiModel()}" on this key's Google project is used up${q.limit !== null ? ` (limit ${q.limit} per day${q.freeTier ? ", free tier" : ""})` : ""}. It resets${q.retryAfterS ? ` in about ${Math.ceil(q.retryAfterS / 3600)} h` : " daily"}; enable billing in Google AI Studio or set GEMINI_MODEL to another model.`,
+          `The daily request quota for model "${model}" on this key's Google project is used up${q.limit !== null ? ` (limit ${q.limit} per day${q.freeTier ? ", free tier" : ""})` : ""}. It resets${q.retryAfterS ? ` in about ${Math.ceil(q.retryAfterS / 3600)} h` : " daily"}; enable billing in Google AI Studio, or set GEMINI_MODEL or GEMINI_FALLBACK_MODELS to other models.`,
         );
       return new AnalysisError(
         "quota",
@@ -176,11 +176,18 @@ export interface AiTrace {
   model?: string;
   output?: unknown;
   /** Called when a network request is sent and when it finishes (for live progress). */
-  onRequest?: (attempt: number) => void;
+  onRequest?: (attempt: number, model: string) => void;
   onAttempt?: (a: AiAttempt) => void;
+  /** Called when the daily quota of one model is used up and the next fallback model is tried. */
+  onFallback?: (f: { from: string; to: string; reason: string }) => void;
+  fallbacks?: { from: string; to: string; reason: string }[];
 }
 
-/** Ask Gemini for JSON matching `schema`. Retries once on unusable output; throws AnalysisError. */
+/**
+ * Ask Gemini for JSON matching `schema`. Retries once on unusable output; throws AnalysisError.
+ * If the configured model's daily quota is used up, each model in GEMINI_FALLBACK_MODELS is tried
+ * once, in order. Every request (and every fallback) is recorded in the trace.
+ */
 export async function generateStructured<S extends z.ZodType>(
   schema: S,
   systemInstruction: string,
@@ -190,21 +197,44 @@ export async function generateStructured<S extends z.ZodType>(
   if (!isGeminiConfigured()) {
     throw new AnalysisError("missing_key", 503, "AI analysis is unavailable: GEMINI_API_KEY is not set on the server.");
   }
-  const model = geminiModel();
+  const models = [geminiModel(), ...geminiFallbackModels()];
+  const counter = { n: 0 };
+  for (let i = 0; ; i++) {
+    try {
+      return await generateWithModel(models[i], schema, systemInstruction, prompt, trace, counter);
+    } catch (err) {
+      const next = models[i + 1];
+      if (!(err instanceof AnalysisError) || err.code !== "quota" || !next) throw err;
+      const f = { from: models[i], to: next, reason: `Daily quota for ${models[i]} is used up` };
+      if (trace) {
+        trace.fallbacks = [...(trace.fallbacks ?? []), f];
+        trace.onFallback?.(f);
+      }
+    }
+  }
+}
+
+async function generateWithModel<S extends z.ZodType>(
+  model: string,
+  schema: S,
+  systemInstruction: string,
+  prompt: string,
+  trace: AiTrace | undefined,
+  counter: { n: number },
+): Promise<{ data: z.infer<S>; model: string; usage: AnalysisResult["usage"] }> {
   if (trace) trace.model = model;
   const ai = getGeminiClient();
   const jsonSchema = stripKeys(z.toJSONSchema(schema));
-  let attemptNo = 0;
   const record = (a: Omit<AiAttempt, "stage" | "attempt">) => {
     if (!trace) return;
-    const full = { stage: trace.stage, attempt: attemptNo, ...a };
+    const full = { stage: trace.stage, attempt: counter.n, model, ...a };
     trace.attempts.push(full);
     trace.onAttempt?.(full);
   };
   /** One real network request, timed with a monotonic clock. */
   const request = async () => {
-    attemptNo++;
-    trace?.onRequest?.(attemptNo);
+    counter.n++;
+    trace?.onRequest?.(counter.n, model);
     const startedAt = new Date().toISOString();
     const t0 = performance.now();
     try {
@@ -228,7 +258,7 @@ export async function generateStructured<S extends z.ZodType>(
         durationMs: Math.round(performance.now() - t0),
         outcome: status === 503 || (status === 429 && quotaInfo(err instanceof Error ? err.message : "").window === "minute") ? "overloaded_retry" : "error",
         httpStatus: status,
-        note: toApiError(err).message,
+        note: toApiError(err, model).message,
         promptTokens: null,
         outputTokens: null,
       });
@@ -243,7 +273,7 @@ export async function generateStructured<S extends z.ZodType>(
       call = await withOverloadRetry(request);
     } catch (err) {
       console.error("[gemini] call failed:", err instanceof Error ? err.message.slice(0, 300) : err);
-      throw toApiError(err);
+      throw toApiError(err, model);
     }
 
     const { r: response, startedAt, ms } = call;

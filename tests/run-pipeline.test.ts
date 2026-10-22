@@ -52,7 +52,7 @@ vi.mock("@/lib/server/gemini-common", async (orig) => {
     generateStructured: async (_s: unknown, _sys: string, _p: string, trace?: AiTrace) => {
       const stage = trace?.stage ?? "analysis";
       trace!.model = "stub-model";
-      trace!.onRequest?.(1);
+      trace!.onRequest?.(1, "stub-model");
       const fail = behaviour[stage] === "quota";
       const a = {
         stage,

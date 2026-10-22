@@ -40,6 +40,7 @@ export type RunEventType =
   | "document_processed"
   | "document_skipped"
   | "ai_request_started"
+  | "ai_fallback"
   | "ai_attempt"
   | "run_completed"
   | "run_failed";
@@ -72,6 +73,8 @@ export interface DocumentOutcome {
 export interface AiAttempt {
   stage: "analysis" | "mapping";
   attempt: number;
+  /** Model this request was sent to (differs from the configured one after a fallback). */
+  model?: string;
   startedAt: string;
   durationMs: number;
   outcome: "ok" | "unusable_output" | "overloaded_retry" | "error";
@@ -83,7 +86,10 @@ export interface AiAttempt {
 
 export interface AiStageRecord {
   stage: "analysis" | "mapping";
+  /** Model that produced the output (or the last one tried). */
   model: string;
+  /** Set when the configured model's daily quota was used up and another model was used. */
+  fallback?: { from: string; to: string; reason: string }[];
   attempts: AiAttempt[];
   /** The model's validated output as returned (the original proposal), or null if it failed. */
   output: unknown | null;
