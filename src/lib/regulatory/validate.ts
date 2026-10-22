@@ -123,12 +123,14 @@ export function decideApplicability(
 /** Code-located passages: the line on which a search term literally appears (no model involved). */
 export function keywordHits(terms: string[], docs: ValidationInput["docs"], limit = 4): EvidenceItem[] {
   const hits: EvidenceItem[] = [];
+  // A term must start at a word boundary ("lease" must not match "release"); it may continue ("biocompatib…").
+  const res = terms.map((t) => new RegExp(`(^|[^a-z0-9])${t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   for (const d of docs) {
     for (const pg of d.pages) {
       const lines = pg.text.split("\n");
       for (const line of lines) {
         const low = line.toLowerCase();
-        if (terms.some((t) => low.includes(t.toLowerCase()))) {
+        if (res.some((re) => re.test(low))) {
           hits.push({ kind: "keyword", filename: d.filename, page: pg.page, text: line.trim().slice(0, 240), synthetic: d.synthetic });
           break; // one line per page is enough to point at it
         }

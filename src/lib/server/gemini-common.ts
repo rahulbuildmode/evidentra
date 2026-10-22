@@ -68,7 +68,16 @@ export function toApiError(err: unknown): AnalysisError {
       return new AnalysisError("invalid_key", 401, "The Gemini API key is not authorised for this request.");
     if (err.status === 404)
       return new AnalysisError("model_not_found", 502, `The model "${geminiModel()}" was not found for this key.`);
-    if (err.status === 429)
+    if (err.status === 429) {
+      const q = quotaInfo(msg);
+      if (q.window === "minute")
+        return new AnalysisError("rate_limit", 429, `Gemini's per-minute request limit for this key was reached. Wait ${q.retryAfterS ? `about ${Math.ceil(q.retryAfterS)} s` : "a minute"} and try again.`);
+      if (q.window === "day")
+        return new AnalysisError(
+          "quota",
+          429,
+          `The daily request quota for model "${geminiModel()}" on this key's Google project is used up${q.limit !== null ? ` (limit ${q.limit} per day${q.freeTier ? ", free tier" : ""})` : ""}. It resets${q.retryAfterS ? ` in about ${Math.ceil(q.retryAfterS / 3600)} h` : " daily"}; enable billing in Google AI Studio or set GEMINI_MODEL to another model.`,
+        );
       return new AnalysisError(
         "quota",
         429,
@@ -76,6 +85,7 @@ export function toApiError(err: unknown): AnalysisError {
           ? "The Gemini API key has used up its quota. Check the key's plan and billing in Google AI Studio, or try again later."
           : "Gemini rate limit reached. Wait a minute and try again.",
       );
+    }
     if (err.status >= 500)
       return new AnalysisError(
         "unavailable",
@@ -114,18 +124,45 @@ function stripKeys(v: unknown): unknown {
   return v;
 }
 
+/** Reads Google's 429 details: which quota window was hit, its limit and the suggested wait. */
+export function quotaInfo(msg: string): { window: "minute" | "day" | null; limit: number | null; retryAfterS: number | null; freeTier: boolean } {
+  const id = msg.match(/"quotaId"\s*:\s*"([^"]+)"/)?.[1] ?? "";
+  const window = /PerMinute/i.test(id) ? "minute" : /PerDay/i.test(id) ? "day" : null;
+  const limit = msg.match(/limit: (\d+)/)?.[1];
+  const h = msg.match(/retry in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s/);
+  const retryAfterS = h ? Number(h[1] ?? 0) * 3600 + Number(h[2] ?? 0) * 60 + Number(h[3]) : null;
+  return { window, limit: limit ? Number(limit) : null, retryAfterS, freeTier: /FreeTier|free_tier/i.test(msg) };
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Retry only "temporarily overloaded" (503) errors, briefly. Quota (429) is not retried. */
+/** Longest wait accepted for a per-minute rate limit before giving up (bounded, never indefinite). */
+const MAX_RATE_LIMIT_WAIT_MS = 40_000;
+
+/**
+ * Retry "temporarily overloaded" (503) errors twice, briefly, and a per-minute rate limit (429) once
+ * after Google's suggested wait when that is short. Daily/billing quota is never retried.
+ */
 async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
   const waits = [2_000, 5_000];
-  for (let i = 0; ; i++) {
+  let overloads = 0;
+  let rateLimited = false;
+  for (;;) {
     try {
       return await fn();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 503 && i < waits.length) {
-        await sleep(waits[i]);
+      if (err instanceof ApiError && err.status === 503 && overloads < waits.length) {
+        await sleep(waits[overloads++]);
         continue;
+      }
+      if (err instanceof ApiError && err.status === 429 && !rateLimited) {
+        const q = quotaInfo(err.message || "");
+        const wait = Math.ceil((q.retryAfterS ?? 60) * 1000) + 1_000;
+        if (q.window === "minute" && wait <= MAX_RATE_LIMIT_WAIT_MS) {
+          rateLimited = true;
+          await sleep(wait);
+          continue;
+        }
       }
       throw err;
     }
@@ -189,7 +226,7 @@ export async function generateStructured<S extends z.ZodType>(
       record({
         startedAt,
         durationMs: Math.round(performance.now() - t0),
-        outcome: status === 503 ? "overloaded_retry" : "error",
+        outcome: status === 503 || (status === 429 && quotaInfo(err instanceof Error ? err.message : "").window === "minute") ? "overloaded_retry" : "error",
         httpStatus: status,
         note: toApiError(err).message,
         promptTokens: null,

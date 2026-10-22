@@ -133,6 +133,7 @@ export type AnalysisErrorCode =
   | "missing_key"
   | "invalid_key"
   | "quota"
+  | "rate_limit"
   | "timeout"
   | "unavailable"
   | "model_not_found"
