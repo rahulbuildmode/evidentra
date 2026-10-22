@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { QuoteCheck } from "./analysis";
+import { caseLog } from "./case-log";
 import type { RequirementResult } from "./regulatory/types";
 import type { ReportFinding } from "./report";
 
@@ -29,6 +30,14 @@ const listeners = new Set<() => void>();
 export const inspector = {
   open(t: InspectTarget) {
     target = t;
+    // Log a genuine action for case progress: opening a quotation that code found in the text.
+    const at = new Date().toISOString();
+    if (t.kind === "quote" && t.quote.verifiedPage !== null && (t.quote.check === "verified" || t.quote.check === "verified_other_page"))
+      caseLog.record(t.quote.workspaceId, { inspectedVerifiedQuote: { at, filename: t.quote.proposedFilename, page: t.quote.verifiedPage } });
+    if (t.kind === "finding") {
+      const c = t.finding.citations.find((x) => x.verified);
+      if (c) caseLog.record(t.workspaceId, { inspectedVerifiedQuote: { at, filename: c.filename, page: c.page } });
+    }
     listeners.forEach((l) => l());
   },
   close() {

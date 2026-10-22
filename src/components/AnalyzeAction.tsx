@@ -56,7 +56,7 @@ export function AnalyzeAction({
           disabled={Boolean(blocked) || running}
           onClick={() => (hasResults ? setConfirming(true) : run())}
           aria-describedby="analyze-help"
-          className="press rounded-full bg-ion px-6 py-3 text-sm font-semibold tracking-wide text-obsidian shadow-[0_0_30px_rgba(57,231,255,0.35)] hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          className="press rounded-full bg-ion px-6 py-3 text-sm font-semibold tracking-wide text-obsidian shadow-[0_0_30px_rgba(245,181,68,0.35)] hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
           {running ? "Analysing…" : hasResults ? "Analyse again" : "Analyse dossier"}
         </button>

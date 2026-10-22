@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { STEP_KEYS, STEP_LABEL, type StepKey } from "@/lib/run";
 import { useRunList, useRunSession, useSavedRun } from "@/lib/run-client";
 import { applyEvents, emptyView } from "@/lib/run-view";
+import { Sigil } from "@/components/landing/Sigil";
 
 const SHORT: Record<StepKey, string> = {
   documents: "Validate",
@@ -64,6 +65,15 @@ export function RunProgress({ workspaceId, onNext }: { workspaceId: string; onNe
         </span>
         {view.durationMs !== null && <span className="text-porcelain/40">{(view.durationMs / 1000).toFixed(1)} s on server</span>}
       </div>
+      {streaming && (
+        <div className="flex items-center gap-4 pb-3">
+          <Sigil className="run-sigil h-16 w-16 shrink-0 text-ion" />
+          <div>
+            <div className="font-display text-lg font-semibold">The archive is reading…</div>
+            <div className="text-xs text-porcelain/60">{active ? STEP_LABEL[active] : "Starting the run"}</div>
+          </div>
+        </div>
+      )}
       <ol className="flex flex-wrap gap-x-1 gap-y-2" aria-live="polite">
         {STEP_KEYS.map((k) => {
           const s = view.steps[k];

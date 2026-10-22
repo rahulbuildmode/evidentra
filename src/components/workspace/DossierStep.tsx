@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { CDSCO_MFG_BCD } from "@/lib/requirements";
 import { useShared } from "@/lib/shared-fetch";
+import { useCaseProgress } from "@/lib/use-case-progress";
 import { useGapReport } from "@/lib/use-report";
 import { loadSyntheticDemo, startOwnDossier, useUploader } from "@/lib/use-uploader";
 import { MAX_UPLOADS_PER_WORKSPACE, type UploadedDocument, type UploadedDocumentMeta } from "@/lib/uploads";
@@ -11,6 +12,7 @@ import { DevicePathway } from "../experience/DevicePathway";
 import { EngineRoom } from "../experience/EngineRoom";
 import { ProveItsReal } from "../experience/ProveItsReal";
 import { Drawer } from "../ui";
+import { MissionTasks } from "./CaseProgress";
 import { RunProgress } from "./RunProgress";
 
 const STATUS = {
@@ -159,6 +161,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const readable = uploads.filter((d) => d.status === "extracted").length;
+  const { tasks } = useCaseProgress();
 
   async function analyseOwn() {
     setError(null);
@@ -182,13 +185,14 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
       <h1 id="step-dossier" tabIndex={-1} className="sr-only">
         Step 1: Dossier
       </h1>
-      {/* Compact intro: the promise, the principle, the two ways in. */}
-      <section className="surface relative overflow-hidden rounded-2xl px-5 py-4">
+      {/* Mission select: the concept, the principle, and the two ways into a case. */}
+      <section className="surface relative overflow-hidden rounded-2xl p-4 sm:p-5">
         <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-ion/10 blur-3xl" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative grid gap-4 lg:grid-cols-[1.15fr_1fr] lg:items-center">
           <div className="min-w-0">
-            <p className="text-2xl font-semibold tracking-tight sm:text-[1.7rem]">Know what your dossier is missing.</p>
-            <p className="mt-1 text-sm text-porcelain/60">Find inconsistencies. Trace evidence. Review applicable CDSCO requirements.</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ion">Every dossier is a case</p>
+            <p className="mt-1 font-display text-2xl font-semibold sm:text-[1.9rem]">Know what your dossier is <span className="text-ion-grad">missing.</span></p>
+            <p className="mt-1 text-sm text-porcelain/60">Every inconsistency is a lead. Every finding must have evidence.</p>
             <ol aria-label="How Evidentra works" className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
               <li className="rounded-full border border-ultra/40 bg-ultra/10 px-2.5 py-1 text-ultra">AI proposes</li>
               <li aria-hidden className="text-porcelain/30">→</li>
@@ -197,21 +201,25 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
               <li className="rounded-full border border-amber/40 bg-amber/10 px-2.5 py-1 text-amber">Humans decide</li>
             </ol>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="Choose a mission">
             <button
               type="button"
               onClick={analyseOwn}
-              className="press rounded-full bg-ion px-5 py-2.5 text-sm font-semibold text-obsidian hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain"
+              className={`lift group rounded-xl border p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ion ${!state.isDemo ? "border-ion/50 bg-ion/[0.07]" : "border-porcelain/12 bg-navy/50 hover:border-ion/40"}`}
             >
-              Analyse a dossier
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ion">{!state.isDemo ? "Active case" : "New case"}</span>
+              <span className="mt-1 block text-sm font-semibold">Analyse a dossier</span>
+              <span className="mt-0.5 block text-[11px] text-porcelain/55">Open an empty case file and upload your own PDFs.</span>
             </button>
             <button
               type="button"
               onClick={tryDemo}
               disabled={Boolean(busy)}
-              className="press rounded-full border border-porcelain/25 bg-navy-3/60 px-5 py-2.5 text-sm text-porcelain hover:border-ion/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion disabled:opacity-60"
+              className={`lift group rounded-xl border border-dashed p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ion disabled:opacity-60 ${state.isDemo ? "border-porcelain/50 bg-porcelain/[0.06]" : "border-porcelain/25 bg-navy/50 hover:border-porcelain/50"}`}
             >
-              {busy ?? "Explore sample dossier"}
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-porcelain/70">{state.isDemo ? "Active case · synthetic" : "Synthetic demo case"}</span>
+              <span className="mt-1 block text-sm font-semibold">{busy ?? "Explore sample dossier"}</span>
+              <span className="mt-0.5 block text-[11px] text-porcelain/55">A fictional pulse oximeter with one planted inconsistency. Reloading resets it.</span>
             </button>
           </div>
         </div>
@@ -223,7 +231,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
         <section aria-labelledby="docs-title" className="surface flex flex-col rounded-2xl p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 id="docs-title" className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
-              Documents <span className="text-porcelain/35">{uploads.length}/{MAX_UPLOADS_PER_WORKSPACE}</span>
+              Evidence intake <span className="text-porcelain/35">{uploads.length}/{MAX_UPLOADS_PER_WORKSPACE}</span>
             </h2>
             {state.isDemo && <span className="rounded-full border border-dashed border-porcelain/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-porcelain/75">Synthetic demo data</span>}
           </div>
@@ -257,7 +265,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
               drag ? "border-ion bg-ion/10" : "border-porcelain/25 hover:border-ion/70 hover:bg-ion/5"
             }`}
           >
-            {u.pending.length > 0 && <span aria-hidden className="anim-scan absolute inset-x-0 top-0 h-px bg-ion shadow-[0_0_12px_2px_rgba(57,231,255,0.6)]" />}
+            {u.pending.length > 0 && <span aria-hidden className="anim-scan absolute inset-x-0 top-0 h-px bg-ion shadow-[0_0_12px_2px_rgba(245,181,68,0.6)]" />}
             <span aria-hidden className="text-2xl text-ion">⬡</span>
             <span>
               <span className="block text-sm font-semibold">{u.pending.length ? `Extracting text from ${u.pending.length} file${u.pending.length === 1 ? "" : "s"}…` : "Drop PDFs here or choose files"}</span>
@@ -307,7 +315,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
           <DevicePathway />
           <section aria-labelledby="analyse-title" className="surface rounded-2xl p-4">
             <h2 id="analyse-title" className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
-              Analyse
+              Scan
             </h2>
             <AnalyzeAction workspaceId={ws} set={CDSCO_MFG_BCD} aiConfigured={results.aiConfigured} readableDocs={readable} hasResults={Boolean(results.analysis)} onDone={refresh} />
             {results.error && <p className="mt-2 text-xs text-coral">{results.error}</p>}
@@ -322,6 +330,8 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
           </section>
         </div>
       </div>
+
+      <MissionTasks tasks={tasks} />
 
       <Collapsible title="View analysis details" hint="Engine Room: server events, timings, AI requests, quote checks">
         <EngineRoom />

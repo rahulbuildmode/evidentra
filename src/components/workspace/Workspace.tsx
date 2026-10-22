@@ -5,7 +5,8 @@ import { STEP_LABEL } from "@/lib/run";
 import { parseHash } from "@/lib/links";
 import { useRunSession } from "@/lib/run-client";
 import { useGapReport } from "@/lib/use-report";
-import { useValidation } from "@/lib/use-validation";
+import { useProfile, useValidation } from "@/lib/use-validation";
+import { AchievementToast, CaseProgressButton } from "./CaseProgress";
 import { DossierStep } from "./DossierStep";
 import { PrintReport } from "./PrintReport";
 import { FindingsStep } from "./FindingsStep";
@@ -13,9 +14,9 @@ import { ReadinessStep } from "./ReadinessStep";
 
 export type StepId = "dossier" | "findings" | "readiness";
 const STEPS: { id: StepId; n: string; label: string }[] = [
-  { id: "dossier", n: "01", label: "Dossier" },
-  { id: "findings", n: "02", label: "Findings" },
-  { id: "readiness", n: "03", label: "CDSCO readiness" },
+  { id: "dossier", n: "01", label: "Case file" },
+  { id: "findings", n: "02", label: "Investigation board" },
+  { id: "readiness", n: "03", label: "Case summary" },
 ];
 const isStep = (s: string): s is StepId => STEPS.some((x) => x.id === s);
 
@@ -68,6 +69,8 @@ export function Workspace() {
   const [step, go, params] = useStep();
   const { state, report, uploads } = useGapReport();
   const { report: validation } = useValidation(state.workspaceId);
+  const { profile } = useProfile(state.workspaceId);
+  const caseName = profile?.deviceName || (uploads.uploads.length ? "Unnamed device" : "No case open");
   const readable = uploads.uploads.filter((u) => u.status === "extracted").length;
   const done: Record<StepId, boolean> = {
     dossier: readable > 0,
@@ -85,10 +88,19 @@ export function Workspace() {
     <div className="stage flex min-h-[100svh] flex-col print:hidden">
       <header className="print-hide sticky top-0 z-40 border-b border-porcelain/10 bg-navy/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-6">
-          <a href="#dossier" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
+          <a href="/" className="mr-1 flex shrink-0 items-center gap-2 font-semibold tracking-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
             <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-gradient-to-br from-ion to-coral" />
-            <span className="hidden sm:inline">Evidentra</span>
+            <span className="hidden flex-col leading-none sm:flex">
+              <span>Evidentra</span>
+              <span className="mt-0.5 font-mono text-[9px] font-normal uppercase tracking-[0.2em] text-porcelain/45">The Dossier Detective</span>
+            </span>
           </a>
+          <div className="hidden min-w-0 max-w-[15rem] border-l border-porcelain/10 pl-4 xl:block">
+            <div className="font-mono text-[9px] uppercase tracking-[0.22em] text-ion">Active investigation</div>
+            <div className="truncate text-xs text-porcelain/80" title={caseName}>
+              {caseName}
+            </div>
+          </div>
           <nav aria-label="Steps" className="flex min-w-0 flex-1 items-center justify-center gap-1">
             {STEPS.map((s, i) => {
               const active = step === s.id;
@@ -98,8 +110,9 @@ export function Workspace() {
                   <button
                     type="button"
                     onClick={() => go(s.id)}
+                    title={s.label}
                     aria-current={active ? "step" : undefined}
-                    className={`press flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ion sm:px-3 sm:text-sm ${
+                    className={`press flex items-center gap-2 whitespace-nowrap rounded-full px-1.5 py-1.5 text-xs sm:px-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion sm:px-3 sm:text-sm ${
                       active ? "bg-porcelain/10 text-porcelain" : "text-porcelain/60 hover:text-porcelain"
                     }`}
                   >
@@ -111,7 +124,7 @@ export function Workspace() {
                     >
                       {done[s.id] ? "✓" : s.n}
                     </span>
-                    <span className={s.id === "readiness" ? "sr-only min-[420px]:not-sr-only" : ""}>{s.label}</span>
+                    <span className={active ? "max-w-[10rem] truncate" : "sr-only"}>{s.label}</span>
                     <span className="sr-only">{done[s.id] ? "(completed)" : ""}</span>
                   </button>
                 </div>
@@ -124,6 +137,7 @@ export function Workspace() {
             </span>
           )}
           <StatusArea />
+          <CaseProgressButton />
         </div>
       </header>
 
@@ -136,6 +150,7 @@ export function Workspace() {
       </main>
     </div>
     <PrintReport />
+    <AchievementToast />
     </>
   );
 }
