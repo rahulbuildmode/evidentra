@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { BLANK_STATE, DEMO_STATE } from "./demo-data";
 import { todayISO } from "./checks";
-import type { AppState, Decision, WorkspaceFieldKey } from "./types";
+import type { AppState, WorkspaceFieldKey } from "./types";
 
 const KEY = "evidentra:v1";
 const listeners = new Set<() => void>();
@@ -29,7 +29,6 @@ function read(): AppState {
           workspace: parsed.workspace,
           requirementSetId:
             parsed.requirementSetId ?? (parsed.isDemo ? DEMO_STATE.requirementSetId : BLANK_STATE.requirementSetId),
-          decisions: parsed.decisions ?? {},
         };
       }
     } catch {
@@ -83,10 +82,6 @@ export const actions = {
   setRequirementSet(requirementSetId: string) {
     const s = read();
     write({ ...s, requirementSetId });
-  },
-  setDecision(requirementId: string, decision: Decision) {
-    const s = read();
-    write({ ...s, decisions: { ...s.decisions, [requirementId]: decision } });
   },
 };
 

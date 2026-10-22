@@ -8,6 +8,7 @@ import { getRequirementSet, SYNTHETIC_DEMO_SET } from "@/lib/requirements";
 import { useAppState, useToday } from "@/lib/store";
 import { useResults } from "@/lib/use-results";
 import { useUploads } from "@/lib/use-uploads";
+import { useGapReport } from "@/lib/use-report";
 
 export default function OverviewPage() {
   const state = useAppState();
@@ -19,13 +20,14 @@ export default function OverviewPage() {
   const findings = crossCheck(r.analysis, state.workspace, today);
   const discrepancies = findings.filter((f) => f.severity === "fail").length;
   const gaps = mapping?.rows.filter((x) => x.status !== "found").length ?? null;
-  const reviewed = set.requirements.filter((q) => (state.decisions[`req:${set.id}:${q.id}`] ?? "undecided") !== "undecided").length;
+  const { report } = useGapReport();
+  const reviewed = report.counts.reviewed;
 
   const stats = [
     { label: "Documents", value: uploads.length, href: "/documents" },
     { label: "Requirements not shown as found", value: gaps === null ? "—" : `${gaps} / ${set.requirements.length}`, href: "/evidence-matrix" },
     { label: "Exact-value discrepancies", value: r.analysis ? discrepancies : "—", href: "/consistency-checks" },
-    { label: "Requirements reviewed by a human", value: `${reviewed} / ${set.requirements.length}`, href: "/evidence-matrix" },
+    { label: "Items reviewed by a human", value: `${reviewed} / ${reviewed + report.counts.awaitingReview}`, href: "/readiness-report" },
   ];
 
   return (

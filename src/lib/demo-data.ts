@@ -35,7 +35,6 @@ export const DEMO_STATE: AppState = {
   isDemo: true,
   workspace: DEMO_WORKSPACE,
   requirementSetId: "synthetic-demo-checklist",
-  decisions: {},
 };
 
 export const BLANK_STATE: AppState = {
@@ -43,5 +42,4 @@ export const BLANK_STATE: AppState = {
   isDemo: false,
   workspace: BLANK_WORKSPACE,
   requirementSetId: "cdsco-mdr2017-mfg-bcd",
-  decisions: {},
 };

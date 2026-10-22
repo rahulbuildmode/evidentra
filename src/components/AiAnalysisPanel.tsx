@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { categoryLabel, FACT_CATEGORIES, type AnalysisItem, type AnalysisResult, type Uncertainty } from "@/lib/analysis";
-import { CitationView, ReviewControls } from "./evidence";
+import { aiItemBasis } from "@/lib/report";
+import { aiItemKey } from "@/lib/review";
+import { CitationView } from "./evidence";
+import { ReviewPanel } from "./ReviewPanel";
 import { Badge, Button, Card } from "./ui";
 
 const UNCERTAINTY_TONE: Record<Uncertainty, "teal" | "warn" | "bad"> = { low: "teal", medium: "warn", high: "bad" };
@@ -23,7 +26,7 @@ export function ItemsTable({ items, valueLabel }: { items: AnalysisItem[]; value
             <th className="py-2 pr-3 font-medium">{valueLabel}</th>
             <th className="py-2 pr-3 font-medium">Source and quotation</th>
             <th className="w-24 py-2 pr-3 font-medium">Uncertainty</th>
-            <th className="w-40 py-2 font-medium">Review</th>
+            <th className="w-56 py-2 font-medium">Human review</th>
           </tr>
         </thead>
         <tbody>
@@ -46,7 +49,7 @@ export function ItemsTable({ items, valueLabel }: { items: AnalysisItem[]; value
                 <div className="mt-1 text-xs text-mute">Stated confidence: {it.modelConfidence}</div>
               </td>
               <td className="py-3">
-                <ReviewControls decisionKey={`ai:${it.id}`} />
+                <ReviewPanel itemKey={aiItemKey(it)} basis={aiItemBasis(it)} kind={it.kind === "fact" ? "fact" : "finding"} aiSuggestion compact />
               </td>
             </tr>
           ))}

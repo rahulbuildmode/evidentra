@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import type { CheckedCitation } from "@/lib/analysis";
-import { actions, useAppState } from "@/lib/store";
-import type { Finding, Severity } from "@/lib/types";
+import { PROVENANCE_LABEL, type ReportFinding } from "@/lib/report";
+import { FINDING_STATUS_LABEL } from "@/lib/review";
+import { ReviewPanel } from "./ReviewPanel";
 import { Badge, Button } from "./ui";
 
 /** A quotation plus the code's verdict on whether it really appears in the extracted text. */
@@ -31,49 +32,26 @@ export function CitationView({ c }: { c: CheckedCitation }) {
   );
 }
 
-/** Human review control. Decisions are stored in this browser, keyed by `decisionKey`. */
-export function ReviewControls({ decisionKey, accept = "Accept" }: { decisionKey: string; accept?: string }) {
-  const { decisions } = useAppState();
-  const d = decisions[decisionKey] ?? "undecided";
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex gap-1">
-        <Button
-          variant={d === "approved" ? "primary" : "secondary"}
-          aria-pressed={d === "approved"}
-          onClick={() => actions.setDecision(decisionKey, d === "approved" ? "undecided" : "approved")}
-        >
-          {accept}
-        </Button>
-        <Button
-          variant={d === "rejected" ? "danger" : "secondary"}
-          aria-pressed={d === "rejected"}
-          onClick={() => actions.setDecision(decisionKey, d === "rejected" ? "undecided" : "rejected")}
-        >
-          Reject
-        </Button>
-      </div>
-      <span className="text-xs text-mute">
-        {d === "approved" ? "Accepted by reviewer" : d === "rejected" ? "Rejected by reviewer" : "Needs human review"}
-      </span>
-    </div>
-  );
-}
+const SEVERITY_TONE = { high: "bad", medium: "warn", low: "neutral" } as const;
+const SEVERITY_LABEL = { high: "High", medium: "Medium", low: "Low" } as const;
 
-const SEVERITY_TONE: Record<Severity, "bad" | "warn" | "neutral"> = { fail: "bad", warn: "warn", info: "neutral" };
-const SEVERITY_LABEL: Record<Severity, string> = { fail: "Discrepancy", warn: "Check", info: "Note" };
-
-/** Deterministic findings with conflicting values, sources, passages and review status. */
-export function FindingList({ findings, empty }: { findings: Finding[]; empty: string }) {
+/** Discrepancy findings (code or AI) with conflicting values, sources, passages and human review. */
+export function FindingList({ findings, empty }: { findings: ReportFinding[]; empty: string }) {
   if (findings.length === 0) return <p className="text-sm text-ink-soft">{empty}</p>;
   return (
     <ul className="space-y-4">
       {findings.map((f) => (
-        <li key={f.id} className="flex flex-col gap-3 border-b border-line/60 pb-4 last:border-0 last:pb-0 md:flex-row">
+        <li
+          key={f.key}
+          className={`flex flex-col gap-3 border-b border-line/60 pb-4 last:border-0 last:pb-0 md:flex-row ${f.dismissed ? "opacity-60" : ""}`}
+        >
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={SEVERITY_TONE[f.severity]}>{SEVERITY_LABEL[f.severity]}</Badge>
-              <span className="text-xs text-mute">{f.check}</span>
+              <Badge tone={f.provenance === "code" ? "neutral" : f.provenance === "demo-seed" ? "demo" : "teal"}>
+                {PROVENANCE_LABEL[f.provenance]}
+              </Badge>
+              {f.effectiveStatus !== "open" && <Badge tone="teal">{FINDING_STATUS_LABEL[f.effectiveStatus]}</Badge>}
             </div>
             <div className="mt-1 text-sm font-medium text-ink">{f.title}</div>
             <p className="text-sm text-ink-soft">{f.detail}</p>
@@ -83,14 +61,15 @@ export function FindingList({ findings, empty }: { findings: Finding[]; empty: s
                   {c.value && <span className="mr-2 font-mono text-xs text-ink">{c.value}</span>}
                   <span className="italic text-ink-soft">&ldquo;{c.quote}&rdquo;</span>
                   <div className="text-xs text-mute">
-                    {c.filename}, page {c.page}
+                    {c.filename}, page {c.page ?? "?"}
+                    {!c.verified && <span className="ml-1 text-bad">(quotation not verified)</span>}
                   </div>
                 </li>
               ))}
             </ul>
           </div>
           <div className="shrink-0">
-            <ReviewControls decisionKey={`cc:${f.id}`} accept="Confirm" />
+            <ReviewPanel itemKey={f.key} basis={f.basis} kind="finding" aiSuggestion={f.provenance !== "code"} />
           </div>
         </li>
       ))}

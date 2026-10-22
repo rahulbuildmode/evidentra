@@ -21,8 +21,6 @@ export type WorkspaceFieldKey =
 
 export type Workspace = Record<WorkspaceFieldKey, FieldValue>;
 
-export type Decision = "undecided" | "approved" | "rejected";
-
 export interface AppState {
   /** Uploads and AI results on the server are stored per workspace id. */
   workspaceId: string;
@@ -30,8 +28,6 @@ export interface AppState {
   workspace: Workspace;
   /** Which requirement set the Evidence Matrix maps against. */
   requirementSetId: string;
-  /** Human review decisions, keyed by item ("req:<id>", "ai:<id>", "cc:<id>"). */
-  decisions: Record<string, Decision>;
 }
 
 export type Severity = "fail" | "warn" | "info";

@@ -3,16 +3,18 @@
 import { AiRunCard, ItemsTable } from "@/components/AiAnalysisPanel";
 import { FindingList, LoadDemoButton } from "@/components/evidence";
 import { Card, DemoNotice, PageHeader } from "@/components/ui";
-import { crossCheck, verifiedFactsOf } from "@/lib/checks";
-import { useAppState, useToday } from "@/lib/store";
-import { useResults } from "@/lib/use-results";
+import { Button } from "@/components/ui";
+import { verifiedFactsOf } from "@/lib/checks";
+import { consistencyFindingsCsv } from "@/lib/csv";
+import { downloadCsv } from "@/lib/download";
+import { useToday } from "@/lib/store";
+import { useGapReport } from "@/lib/use-report";
 
 export default function ConsistencyChecksPage() {
-  const state = useAppState();
   const today = useToday();
-  const r = useResults(state.workspaceId);
+  const { state, report, results: r } = useGapReport();
   const analysis = r.analysis;
-  const findings = crossCheck(analysis, state.workspace, today);
+  const findings = report.findings.filter((f) => f.provenance === "code");
   const items = analysis?.items ?? [];
   const facts = items.filter((i) => i.kind === "fact");
   const semantic = items.filter((i) => i.kind === "inconsistency");
@@ -26,6 +28,11 @@ export default function ConsistencyChecksPage() {
       <PageHeader
         title="Consistency Checks"
         subtitle="Compare device name, model, manufacturer, intended use, specifications, dates and revisions across documents. Exact comparisons use plain code; Gemini explains differences in meaning. A discrepancy is not a legal finding."
+        actions={
+          <Button onClick={() => downloadCsv("evidentra-consistency-findings.csv", consistencyFindingsCsv(report))} disabled={report.findings.length === 0}>
+            Export findings CSV
+          </Button>
+        }
       />
       {state.isDemo && (
         <DemoNotice>

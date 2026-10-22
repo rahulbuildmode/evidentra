@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CitationView, LoadDemoButton, ReviewControls } from "@/components/evidence";
+import { CitationView, LoadDemoButton } from "@/components/evidence";
+import { ReviewPanel } from "@/components/ReviewPanel";
+import { PROVENANCE_LABEL } from "@/lib/report";
+import { useGapReport } from "@/lib/use-report";
 import { Badge, Button, Card, DemoNotice, PageHeader } from "@/components/ui";
 import { evidenceMatrixCsv } from "@/lib/csv";
 import { downloadCsv } from "@/lib/download";
 import { EVIDENCE_LABEL, type EvidenceStatus } from "@/lib/mapping";
 import { getRequirementSet, REQUIREMENT_SETS, scenarioApplicability, SYNTHETIC_DEMO_SET } from "@/lib/requirements";
 import { actions, useAppState } from "@/lib/store";
-import { useResults } from "@/lib/use-results";
 
 const STATUS_TONE: Record<EvidenceStatus, "teal" | "warn" | "bad" | "neutral"> = {
   found: "teal",
@@ -20,7 +22,7 @@ const STATUS_TONE: Record<EvidenceStatus, "teal" | "warn" | "bad" | "neutral"> =
 
 export default function EvidenceMatrixPage() {
   const state = useAppState();
-  const r = useResults(state.workspaceId);
+  const { report, results: r } = useGapReport();
   const set = getRequirementSet(state.requirementSetId) ?? SYNTHETIC_DEMO_SET;
   const applicability = scenarioApplicability(set, state.workspace);
   const mapping = r.mapping && r.mapping.requirementSetId === set.id ? r.mapping : null;
@@ -55,7 +57,7 @@ export default function EvidenceMatrixPage() {
         subtitle="Each requirement against the evidence found in the uploaded documents. The AI proposes; code verifies every quotation and caps the status to what was verified; you review."
         actions={
           <>
-            <Button onClick={() => downloadCsv("evidentra-evidence-matrix.csv", evidenceMatrixCsv(set, mapping, state.decisions, state.isDemo))}>
+            <Button onClick={() => downloadCsv("evidentra-evidence-matrix.csv", evidenceMatrixCsv(report))}>
               Export CSV
             </Button>
             <Button variant="primary" onClick={runMapping} disabled={running || !r.aiConfigured}>
@@ -157,12 +159,13 @@ export default function EvidenceMatrixPage() {
                 <th className="w-40 py-2 pr-3 font-medium">Evidence status</th>
                 <th className="py-2 pr-3 font-medium">Source document, page and quotation</th>
                 <th className="w-48 py-2 pr-3 font-medium">Recommended next action</th>
-                <th className="w-40 py-2 font-medium">Human review</th>
+                <th className="w-56 py-2 font-medium">Human review</th>
               </tr>
             </thead>
             <tbody>
               {set.requirements.map((req) => {
                 const row = mapping?.rows.find((x) => x.requirementId === req.id);
+                const rep = report.requirements.find((x) => x.requirement.id === req.id)!;
                 return (
                   <tr key={req.id} className="border-b border-line/60 align-top last:border-0">
                     <td className="py-3 pr-3">
@@ -190,6 +193,14 @@ export default function EvidenceMatrixPage() {
                       {row ? (
                         <>
                           <Badge tone={STATUS_TONE[row.status]}>{EVIDENCE_LABEL[row.status]}</Badge>
+                          <div className="mt-1 text-xs text-mute">
+                            {rep.evidenceProvenance ? PROVENANCE_LABEL[rep.evidenceProvenance] : ""}
+                          </div>
+                          {rep.overridden && rep.effectiveStatus !== "not_assessed" && (
+                            <div className="mt-1">
+                              <Badge tone="teal">Human: {EVIDENCE_LABEL[rep.effectiveStatus]}</Badge>
+                            </div>
+                          )}
                           {row.proposedStatus && row.proposedStatus !== row.status && (
                             <div className="mt-1 text-xs text-warn">Proposed: {EVIDENCE_LABEL[row.proposedStatus]}</div>
                           )}
@@ -209,7 +220,7 @@ export default function EvidenceMatrixPage() {
                     </td>
                     <td className="py-3 pr-3 text-xs text-ink-soft">{row?.nextAction ?? "—"}</td>
                     <td className="py-3">
-                      <ReviewControls decisionKey={`req:${set.id}:${req.id}`} />
+                      <ReviewPanel itemKey={rep.key} basis={rep.basis} kind="requirement" aiSuggestion={rep.evidenceProvenance === "ai"} />
                     </td>
                   </tr>
                 );

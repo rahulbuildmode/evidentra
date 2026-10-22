@@ -13,7 +13,7 @@ AI-assisted regulatory documentation copilot for Indian medical-device manufactu
 | Documents | Upload up to 10 PDFs per workspace (max 4 MB each). Server checks type, size, empty files and the `%PDF-` signature, extracts text page by page, flags text-less PDFs as **needs OCR**, and records failed/damaged/password-protected PDFs with a clear error. "View text" shows the extracted text per PDF page |
 | Evidence Matrix | Pick a requirement set, then "Map evidence with AI". Each requirement shows verification status and source, expected evidence, evidence status (Found / Partial / Missing / Conflicting / Needs review), source document, page and quotation, recommended next action and human review. Code verifies every quotation and downgrades any status its verified quotes don't support. CSV export |
 | Consistency Checks | Compares device name, model, manufacturer, intended use, specifications, dates and revisions. **Exact comparisons are plain TypeScript** on quote-verified facts; **Gemini** proposes differences in meaning. Each finding shows the conflicting values, documents, pages, passages and a review status. Discrepancies are never labelled legal violations |
-| Readiness Report | Summary for a human reviewer, CSV export, print to PDF |
+| Gap Report | Pre-submission documentation gap report built live from the evidence matrix, consistency findings, uploads and human reviews: device details, scenario and verification status, evidence by status, unresolved applicability questions, cross-document discrepancies, items awaiting review, prioritised actions and an index of every cited file/page/quotation. Three CSV exports (evidence matrix, consistency findings, action list) and print to PDF |
 
 The **demo workspace is fictional**. "Load demo dossier" (or *Reload demo* on the Workspace page) uploads four made-up PDFs from `fixtures/demo-dossier/` and a hand-written, clearly labelled demo seed. Every seed quotation is re-verified by code against the PDF text on each load. The dossier demonstrates, against the synthetic checklist:
 
@@ -53,6 +53,14 @@ npm run build    # production build (also type-checks)
 | `EVIDENTRA_DATA_DIR` | Optional. Where uploads are stored. Default: `.data/` locally, `/tmp/evidentra-data` on Vercel. |
 
 `.env.local` is ignored by Git. Never commit a real key. `.env.example` holds the variable name only.
+
+## Human review
+
+On the Gap Report, Evidence Matrix and Consistency Checks pages a reviewer can mark an item reviewed, accept or reject an AI suggestion, change its status (evidence status for requirements; Open / Confirmed / Resolved for findings), add a note, or dismiss a false positive with a required reason. Reviews are saved in the browser **per workspace**, keyed by what the item is (requirement id, check id, or the AI item's topic and cited files) rather than by AI run, so they survive re-running the AI and regenerating the report. If the underlying evidence changes after a review, the item is flagged **Changed since review**. Limitation: reviews are not yet shared between browsers or users.
+
+## CSV exports
+
+RFC 4180: every field is quoted, quotes are doubled, commas and newlines stay inside quotes, rows end with CRLF, and a UTF-8 BOM is added for Excel. Any cell that starts (after optional spaces) with `=`, `+`, `-`, `@`, tab or carriage return is prefixed with `'` so spreadsheets treat it as text, not a formula.
 
 ## Requirement sets and regulatory sources
 
@@ -106,7 +114,9 @@ src/components/          AppShell (sidebar) and small UI pieces
 src/lib/demo-data.ts     the fictional demo workspace
 src/lib/requirements.ts  draft requirement topics + source links
 src/lib/store.ts         browser-only state (localStorage), no database
-src/lib/csv.ts           CSV export
+src/lib/csv.ts           safe CSV writer + the three exports
+src/lib/report.ts        gap report builder (counts, questions, prioritised actions)
+src/lib/review.ts        review model and stable keys; review-store.ts saves reviews per workspace
 src/lib/gemini.ts        server-only Gemini client helper
 src/lib/server/          PDF extraction, private document/analysis store, Gemini prompt + call, quote verifier
 src/lib/analysis.ts      Zod schema for model output + result types
@@ -123,5 +133,5 @@ src/app/api/documents    upload/list (route.ts) and view/delete ([id]/route.ts)
 ## Next steps
 
 1. Review MDR amendments after Oct 2022 and the portal checklist, then extend `REGULATORY_SOURCES.md` and the official set.
-2. Store review decisions on the server (they live in the browser today).
+2. Store reviews on the server with reviewer identity (they live in the browser today).
 3. Durable private storage and login before any real deployment.
