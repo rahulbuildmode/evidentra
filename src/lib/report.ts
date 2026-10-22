@@ -1,6 +1,6 @@
 import type { AnalysisResult, CheckedCitation } from "./analysis";
 import { crossCheck } from "./checks";
-import { EVIDENCE_LABEL, EVIDENCE_STATUS, type EvidenceStatus, type MappingResult } from "./mapping";
+import { EVIDENCE_STATUS, type EvidenceStatus, type MappingResult } from "./mapping";
 import { scenarioApplicability, type Requirement, type RequirementSet } from "./requirements";
 import {
   aiItemKey,
@@ -47,6 +47,40 @@ interface Reviewable {
   changedSinceReview: boolean;
 }
 
+/**
+ * What the UI shows. "not_found" = the AI/code could not find evidence in the uploaded text.
+ * "missing_confirmed" = a reviewer has confirmed it is missing (set the status, or accepted the
+ * "not found" proposal). Not found is never shown as confirmed missing on its own.
+ */
+export type DisplayStatus =
+  | "found"
+  | "partial"
+  | "not_found"
+  | "missing_confirmed"
+  | "conflicting"
+  | "needs_review"
+  | "not_assessed";
+
+export const DISPLAY_LABEL: Record<DisplayStatus, string> = {
+  found: "Evidence found",
+  partial: "Partial evidence",
+  not_found: "Not found in uploaded documents",
+  missing_confirmed: "Missing — confirmed by reviewer",
+  conflicting: "Conflicting evidence",
+  needs_review: "Needs closer review",
+  not_assessed: "Not checked yet",
+};
+
+export const DISPLAY_ORDER: DisplayStatus[] = [
+  "conflicting",
+  "missing_confirmed",
+  "not_found",
+  "partial",
+  "needs_review",
+  "found",
+  "not_assessed",
+];
+
 export interface RequirementRow extends Reviewable {
   requirement: Requirement;
   requirementProvenance: "official" | "synthetic";
@@ -54,6 +88,7 @@ export interface RequirementRow extends Reviewable {
   proposedStatus: EvidenceStatus | null;
   effectiveStatus: EvidenceStatus | "not_assessed";
   overridden: boolean;
+  display: DisplayStatus;
   rationale: string;
   nextAction: string;
   codeNote: string | null;
@@ -71,6 +106,10 @@ export interface ReportFinding extends Reviewable {
   values: string[];
   citations: ReportCitation[];
   effectiveStatus: FindingStatus;
+  /** Plain-English type: automatically checked, AI interpretation, or possible missing information. */
+  kindLabel: string;
+  whyItMatters: string;
+  nextStep: string;
 }
 
 export interface ReportAction {
@@ -83,6 +122,10 @@ export interface ReportAction {
   provenance: Provenance;
   citations: ReportCitation[];
   reviewState: string;
+  /** Where to open the supporting evidence for this action. */
+  href: string;
+  /** Formal requirement identifier, kept exactly (requirement actions only). */
+  ref?: string;
 }
 
 export interface ApplicabilityQuestion {
@@ -106,6 +149,7 @@ export interface GapReport {
   awaitingReview: (RequirementRow | ReportFinding)[];
   counts: {
     evidence: Record<EvidenceStatus | "not_assessed", number>;
+    display: Record<DisplayStatus, number>;
     discrepanciesOpen: number;
     discrepanciesConfirmed: number;
     discrepanciesResolved: number;
@@ -144,6 +188,42 @@ function reviewable(key: string, basis: string, reviews: Record<string, Review>)
   };
 }
 
+/** Neutral, rule-based explanations for why a discrepancy is worth a reviewer's time. */
+function explainFinding(check: string, group: DiscrepancyGroup, provenance: "code" | "ai" | "demo-seed") {
+  if (group === "missing_info") {
+    return {
+      kindLabel: "Possibly missing information",
+      whyItMatters: "This was not found in the uploaded text. It may exist in another document that was not uploaded.",
+      nextStep: "Check whether this information exists elsewhere and add it to the dossier if needed.",
+    };
+  }
+  const c = check.toLowerCase();
+  const why = c.includes("model")
+    ? "Every document should identify the same model. A difference usually needs correcting or explaining before review."
+    : c.includes("device name")
+      ? "Documents should name the device consistently so a reviewer knows they describe the same product."
+      : c.includes("manufacturer")
+        ? "The legal manufacturer should be named consistently across the dossier."
+        : c.includes("intended use")
+          ? "Different intended-use wording can change how the device is understood. Confirm the same meaning is intended."
+          : c.includes("specification")
+            ? "Different specification values need to be reconciled with the test data before review."
+            : c.includes("revision")
+              ? "Conflicting revisions make it unclear which version of the document is current."
+              : c.includes("validity")
+                ? "A certificate outside its validity period may need renewing or replacing. Confirm its current status."
+                : c.includes("workspace")
+                  ? "The details entered in the workspace do not match the documents. One of them may need updating."
+                  : "The documents may describe this differently. A reviewer should confirm which is correct.";
+  return {
+    kindLabel: provenance === "code" ? "Automatically checked values" : "The descriptions may differ in meaning",
+    whyItMatters: why,
+    nextStep: c.includes("workspace")
+      ? "Confirm the correct value and update either the workspace or the documents."
+      : "Confirm the correct value with the document owner and align all documents.",
+  };
+}
+
 const WORKSPACE_LABELS: Record<WorkspaceFieldKey, string> = {
   deviceName: "Device name",
   manufacturer: "Manufacturer",
@@ -177,14 +257,19 @@ export function buildReport(input: {
     const override = rv.review.status && (EVIDENCE_STATUS as readonly string[]).includes(rv.review.status)
       ? (rv.review.status as EvidenceStatus)
       : null;
+    const effectiveStatus = override ?? row?.status ?? "not_assessed";
+    const confirmedMissing = override === "missing" || (row?.status === "missing" && rv.review.decision === "accepted");
+    const display: DisplayStatus =
+      effectiveStatus === "missing" ? (confirmedMissing ? "missing_confirmed" : "not_found") : effectiveStatus;
     return {
       ...rv,
       requirement: req,
       requirementProvenance: reqProv,
       evidenceProvenance: mapping ? mapping.source === "demo-seed" ? "demo-seed" : "ai" : null,
       proposedStatus: row?.status ?? null,
-      effectiveStatus: override ?? row?.status ?? "not_assessed",
+      effectiveStatus,
       overridden: Boolean(override && override !== row?.status),
+      display,
       rationale: row?.rationale ?? "",
       nextAction: row?.nextAction ?? "",
       codeNote: row?.codeNote ?? null,
@@ -212,6 +297,7 @@ export function buildReport(input: {
       values: [...new Set(f.citations.map((c) => c.value).filter(Boolean) as string[])],
       citations: f.citations.map((c) => ({ ...c, verified: true })),
       effectiveStatus: statusOf(rv.review),
+      ...explainFinding(f.check, "discrepancy", "code"),
     });
   }
   for (const it of analysis?.items ?? []) {
@@ -230,6 +316,7 @@ export function buildReport(input: {
       values: [],
       citations,
       effectiveStatus: statusOf(rv.review),
+      ...explainFinding(it.field, it.kind === "inconsistency" ? "discrepancy" : "missing_info", aiProv),
     });
   }
 
@@ -290,6 +377,7 @@ export function buildReport(input: {
       provenance: "code",
       citations: [],
       reviewState: "n/a",
+      href: "/documents",
     });
   }
   for (const r of requirements) {
@@ -300,13 +388,15 @@ export function buildReport(input: {
     actions.push({
       id: `a-${r.key}`,
       priority,
-      title: `${r.requirement.id} ${r.requirement.title}: ${EVIDENCE_LABEL[s]}`,
+      title: `${r.requirement.title}: ${DISPLAY_LABEL[r.display].toLowerCase()}`,
       action: r.nextAction || (s === "missing" ? "Locate or prepare the expected evidence." : "Review the cited passages."),
       reason: r.rationale || r.codeNote || "",
       itemKey: r.key,
       provenance: r.evidenceProvenance ?? r.requirementProvenance,
       citations: r.citations,
       reviewState: reviewState(r),
+      href: `/evidence-matrix?item=${encodeURIComponent(r.key)}`,
+      ref: r.requirement.id,
     });
   }
   for (const f of findings) {
@@ -325,6 +415,7 @@ export function buildReport(input: {
       provenance: f.provenance,
       citations: f.citations,
       reviewState: reviewState(f),
+      href: `/consistency-checks?item=${encodeURIComponent(f.key)}`,
     });
   }
   const unverifiedFields = (Object.keys(WORKSPACE_LABELS) as WorkspaceFieldKey[]).filter((k) => !ws[k].verified);
@@ -339,13 +430,19 @@ export function buildReport(input: {
       provenance: "code",
       citations: [],
       reviewState: "n/a",
+      href: "/workspace",
     });
   }
   actions.sort((a, b) => a.priority - b.priority);
 
   // ---- Counts ----
   const evidence = Object.fromEntries([...EVIDENCE_STATUS, "not_assessed"].map((s) => [s, 0])) as GapReport["counts"]["evidence"];
-  for (const r of requirements) if (!r.dismissed) evidence[r.effectiveStatus]++;
+  const display = Object.fromEntries(DISPLAY_ORDER.map((s) => [s, 0])) as Record<DisplayStatus, number>;
+  for (const r of requirements) {
+    if (r.dismissed) continue;
+    evidence[r.effectiveStatus]++;
+    display[r.display]++;
+  }
   const live = [...requirements.filter((r) => r.effectiveStatus !== "not_assessed"), ...findings];
   const awaitingReview = live.filter((x) => !x.dismissed && !x.humanReviewed);
   const discrepancies = findings.filter((f) => f.group === "discrepancy" && !f.dismissed);
@@ -369,6 +466,7 @@ export function buildReport(input: {
     awaitingReview,
     counts: {
       evidence,
+      display,
       discrepanciesOpen: discrepancies.filter((f) => f.effectiveStatus === "open").length,
       discrepanciesConfirmed: discrepancies.filter((f) => f.effectiveStatus === "confirmed").length,
       discrepanciesResolved: discrepancies.filter((f) => f.effectiveStatus === "resolved").length,

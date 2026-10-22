@@ -26,6 +26,8 @@ export function useGapReport() {
   });
   return {
     state,
+    set,
+    reviews,
     report,
     results,
     uploads,

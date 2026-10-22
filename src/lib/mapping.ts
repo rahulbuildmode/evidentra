@@ -6,12 +6,13 @@ import { CitationSchema, type CheckedCitation } from "./analysis";
 export const EVIDENCE_STATUS = ["found", "partial", "missing", "conflicting", "needs_review"] as const;
 export type EvidenceStatus = (typeof EVIDENCE_STATUS)[number];
 
+/** Labels for statuses proposed by the AI or demo seed. "missing" from the AI only means not found. */
 export const EVIDENCE_LABEL: Record<EvidenceStatus, string> = {
-  found: "Found",
-  partial: "Partial",
-  missing: "Missing — not found in uploaded text",
-  conflicting: "Conflicting",
-  needs_review: "Needs review",
+  found: "Evidence found",
+  partial: "Partial evidence",
+  missing: "Not found in uploaded documents",
+  conflicting: "Conflicting evidence",
+  needs_review: "Needs closer review",
 };
 
 export const MappingOutputSchema = z.object({

@@ -22,7 +22,7 @@ describe("buildReport", () => {
     const r = buildReport({ ...base, reviews: {} });
     expect(r.counts.evidence).toMatchObject({ conflicting: 1, partial: 1, missing: 1, not_assessed: 4 });
     expect(r.actions[0].priority).toBe(1);
-    expect(r.actions[0].title).toMatch(/DEMO-04/);
+    expect(r.actions[0].ref).toBe("DEMO-04");
   });
   it("applies human status changes and dismissals, and keeps them across a new run", () => {
     const r0 = buildReport({ ...base, reviews: {} });
@@ -45,5 +45,27 @@ describe("buildReport", () => {
     const k = r0.requirements.find((x) => x.requirement.id === "DEMO-04")!;
     const reviews = { [k.key]: { reviewed: true, decision: "accepted" as const, status: null, note: "", dismissedReason: null, basis: "old", updatedAt: "" } };
     expect(buildReport({ ...base, reviews }).counts.changedSinceReview).toBe(1);
+  });
+});
+
+describe("not found vs confirmed missing", () => {
+  it("shows an AI 'missing' as not found until a reviewer confirms it", () => {
+    const r0 = buildReport({ ...base, reviews: {} });
+    const k6 = r0.requirements.find((x) => x.requirement.id === "DEMO-06")!;
+    expect(k6.display).toBe("not_found");
+    expect(r0.counts.display.not_found).toBe(1);
+    expect(r0.counts.display.missing_confirmed).toBe(0);
+
+    const accepted = { [k6.key]: { reviewed: true, decision: "accepted" as const, status: null, note: "", dismissedReason: null, basis: k6.basis, updatedAt: "" } };
+    expect(buildReport({ ...base, reviews: accepted }).requirements.find((x) => x.key === k6.key)!.display).toBe("missing_confirmed");
+
+    const k5 = r0.requirements.find((x) => x.requirement.id === "DEMO-05")!;
+    const setMissing = { [k5.key]: { reviewed: true, decision: "undecided" as const, status: "missing" as const, note: "", dismissedReason: null, basis: k5.basis, updatedAt: "" } };
+    expect(buildReport({ ...base, reviews: setMissing }).requirements.find((x) => x.key === k5.key)!.display).toBe("missing_confirmed");
+  });
+  it("gives each finding a plain-English explanation and links actions to evidence", () => {
+    const r = buildReport({ ...base, reviews: {} });
+    expect(r.actions.every((a) => a.href.startsWith("/"))).toBe(true);
+    expect(r.actions.find((a) => a.itemKey.startsWith("req:"))!.href).toMatch(/^\/evidence-matrix\?item=/);
   });
 });

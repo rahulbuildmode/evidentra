@@ -29,6 +29,8 @@ export async function POST(request: Request) {
   if (!isSafeId(workspaceId)) return fail(400, "bad_request", "Missing or invalid workspace id.");
   try {
     return await runExclusive(`analyze:${workspaceId}`, async () => {
+      // A fresh serverless instance may not have the demo files yet.
+      await ensureDemoLoaded(workspaceId);
       const { docs, skipped } = await loadReadableDocuments(workspaceId);
       const result = await analyzeDocuments(workspaceId, docs, skipped);
       await saveAnalysis(result);

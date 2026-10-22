@@ -1,6 +1,6 @@
 import { EVIDENCE_LABEL } from "./mapping";
 import { FINDING_STATUS_LABEL } from "./review";
-import { PROVENANCE_LABEL, type GapReport, type ReportCitation } from "./report";
+import { DISPLAY_LABEL, PROVENANCE_LABEL, type GapReport, type ReportCitation } from "./report";
 
 /**
  * RFC 4180 CSV with spreadsheet-safety:
@@ -44,7 +44,7 @@ export function evidenceMatrixCsv(r: GapReport): string {
       x.requirement.expectedEvidence,
       x.evidenceProvenance ? PROVENANCE_LABEL[x.evidenceProvenance] : "not assessed",
       x.proposedStatus ? EVIDENCE_LABEL[x.proposedStatus] : "",
-      x.effectiveStatus === "not_assessed" ? "Not assessed" : EVIDENCE_LABEL[x.effectiveStatus],
+      DISPLAY_LABEL[x.display],
       x.overridden ? "yes" : "no",
       x.rationale,
       x.codeNote,
@@ -93,9 +93,10 @@ export function consistencyFindingsCsv(r: GapReport): string {
 
 export function actionListCsv(r: GapReport): string {
   return toCsv(
-    ["priority", "title", "recommended_action", "reason", "source", "files", "pages", "quotations", "review_state", "data_origin"],
+    ["priority", "requirement_id", "title", "recommended_action", "reason", "source", "files", "pages", "quotations", "review_state", "data_origin"],
     r.actions.map((a) => [
       a.priority === 1 ? "1 - high" : a.priority === 2 ? "2 - medium" : "3 - low",
+      a.ref ?? "",
       a.title,
       a.action,
       a.reason,

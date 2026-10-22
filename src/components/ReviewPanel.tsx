@@ -1,23 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { EVIDENCE_LABEL, EVIDENCE_STATUS } from "@/lib/mapping";
+import { EVIDENCE_STATUS, type EvidenceStatus } from "@/lib/mapping";
+import { DISPLAY_LABEL } from "@/lib/report";
 import { changedSinceReview, EMPTY_REVIEW, FINDING_STATUS, FINDING_STATUS_LABEL, type Review } from "@/lib/review";
 import { reviewActions, useReviews } from "@/lib/review-store";
 import { useAppState } from "@/lib/store";
-import { Badge, Button } from "./ui";
+import { Badge, Button, Notice } from "./ui";
+
+/** Labels for a reviewer setting the status. Choosing "missing" here is the confirmation. */
+const REVIEWER_STATUS_LABEL: Record<EvidenceStatus, string> = {
+  found: DISPLAY_LABEL.found,
+  partial: DISPLAY_LABEL.partial,
+  missing: "Missing — I confirm it is not in the dossier",
+  conflicting: DISPLAY_LABEL.conflicting,
+  needs_review: DISPLAY_LABEL.needs_review,
+};
+
+/** One-line review state for lists. */
+export function reviewStateOf(r: Review | undefined, basis?: string) {
+  const x = r ?? EMPTY_REVIEW;
+  const changed = basis !== undefined && changedSinceReview(r, basis);
+  if (x.dismissedReason) return { label: "Dismissed", tone: "neutral" as const, changed };
+  if (x.decision === "accepted") return { label: "Accepted", tone: "teal" as const, changed };
+  if (x.decision === "rejected") return { label: "Rejected", tone: "bad" as const, changed };
+  if (x.reviewed) return { label: "Reviewed", tone: "teal" as const, changed };
+  return { label: "Awaiting review", tone: "warn" as const, changed };
+}
 
 /**
- * Human review controls for one item: mark reviewed, accept/reject an AI suggestion,
- * change status, add a note, or dismiss a false positive with a reason.
- * Stored per workspace in this browser; keyed so it survives re-runs of the AI.
+ * Full reviewer controls, shown inside a detail drawer: mark reviewed, accept/reject an AI
+ * suggestion, change status, add a note, dismiss a false positive with a reason.
+ * Saved per workspace in this browser, keyed so it survives re-running the AI.
  */
 export function ReviewPanel({
   itemKey,
   basis,
   kind,
   aiSuggestion,
-  compact = false,
 }: {
   itemKey: string;
   basis: string;
@@ -31,46 +51,49 @@ export function ReviewPanel({
   const r: Review = stored ?? EMPTY_REVIEW;
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState("");
-  const [showNote, setShowNote] = useState(false);
   const save = (patch: Partial<Review>) => reviewActions.update(workspaceId, itemKey, basis, patch);
   const changed = changedSinceReview(stored, basis);
+  const state = reviewStateOf(stored, basis);
 
   if (r.dismissedReason) {
     return (
-      <div className="space-y-1 text-xs">
-        <Badge>Dismissed</Badge>
-        <div className="text-ink-soft">Reason: {r.dismissedReason}</div>
-        <button type="button" className="no-print text-teal underline" onClick={() => save({ dismissedReason: null })}>
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center gap-2">
+          <Badge>Dismissed as false positive</Badge>
+        </div>
+        <p className="text-ink-soft">Reason: {r.dismissedReason}</p>
+        <Button size="sm" onClick={() => save({ dismissedReason: null })}>
           Undo dismiss
-        </button>
+        </Button>
       </div>
     );
   }
 
   const statusOptions =
     kind === "requirement"
-      ? EVIDENCE_STATUS.map((s) => ({ value: s, label: EVIDENCE_LABEL[s] }))
+      ? EVIDENCE_STATUS.map((s) => ({ value: s, label: REVIEWER_STATUS_LABEL[s] }))
       : kind === "finding"
-        ? FINDING_STATUS.map((s) => ({ value: s, label: FINDING_STATUS_LABEL[s] }))
+        ? FINDING_STATUS.filter((s) => s !== "open").map((s) => ({ value: s, label: FINDING_STATUS_LABEL[s] }))
         : [];
 
   return (
-    <div className={`space-y-2 text-xs ${compact ? "" : "min-w-[13rem]"}`}>
-      <div className="flex flex-wrap items-center gap-1">
-        {r.reviewed ? <Badge tone="teal">Reviewed</Badge> : <Badge>Awaiting review</Badge>}
-        {r.decision === "accepted" && <Badge tone="teal">AI suggestion accepted</Badge>}
-        {r.decision === "rejected" && <Badge tone="bad">AI suggestion rejected</Badge>}
-        {changed && <Badge tone="warn">Changed since review</Badge>}
+    <div className="space-y-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={state.tone}>{state.label}</Badge>
+        {changed && <Badge tone="warn">Evidence changed since your review</Badge>}
+        {r.updatedAt && <span className="text-xs text-mute">Updated {new Date(r.updatedAt).toLocaleString()}</span>}
       </div>
 
-      <div className="no-print flex flex-wrap gap-1">
-        <Button className="px-2! py-1! text-xs!" variant={r.reviewed ? "primary" : "secondary"} aria-pressed={r.reviewed} onClick={() => save({ reviewed: !r.reviewed })}>
-          {r.reviewed ? "✓ Reviewed" : "Mark reviewed"}
-        </Button>
-        {aiSuggestion && (
-          <>
+      {aiSuggestion && (
+        <div>
+          <div className="mb-1.5 text-xs text-ink-soft">
+            {kind === "requirement"
+              ? "Do you agree with the suggested evidence status? Accepting a “not found” result confirms the evidence is missing."
+              : "Do you agree with this suggestion?"}
+          </div>
+          <div className="flex gap-2">
             <Button
-              className="px-2! py-1! text-xs!"
+              size="sm"
               variant={r.decision === "accepted" ? "primary" : "secondary"}
               aria-pressed={r.decision === "accepted"}
               onClick={() => save({ decision: r.decision === "accepted" ? "undecided" : "accepted", reviewed: true })}
@@ -78,70 +101,76 @@ export function ReviewPanel({
               Accept
             </Button>
             <Button
-              className="px-2! py-1! text-xs!"
+              size="sm"
               variant={r.decision === "rejected" ? "danger" : "secondary"}
               aria-pressed={r.decision === "rejected"}
               onClick={() => save({ decision: r.decision === "rejected" ? "undecided" : "rejected", reviewed: true })}
             >
               Reject
             </Button>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {statusOptions.length > 0 && (
-        <label className="no-print flex items-center gap-1 text-mute">
-          Status
+        <label className="block">
+          <span className="mb-1 block text-xs text-ink-soft">Set status</span>
           <select
-            className="rounded border border-line bg-white px-1 py-0.5 text-xs text-ink"
+            className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-ink focus:border-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
             value={r.status ?? ""}
             onChange={(e) => save({ status: (e.target.value || null) as Review["status"] })}
           >
-            <option value="">{kind === "requirement" ? "As proposed" : "Open"}</option>
-            {statusOptions
-              .filter((o) => kind === "requirement" || o.value !== "open")
-              .map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
+            <option value="">{kind === "requirement" ? "Keep the suggested status" : "Open"}</option>
+            {statusOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
       )}
 
-      {r.note && !showNote && <div className="rounded bg-background px-2 py-1 text-ink-soft">Note: {r.note}</div>}
-      {showNote ? (
-        <div className="no-print">
-          <textarea
-            aria-label="Reviewer note"
-            className="w-full rounded border border-line px-2 py-1 text-xs text-ink"
-            rows={2}
-            defaultValue={r.note}
-            autoFocus
-            onBlur={(e) => {
-              if (e.target.value !== r.note) save({ note: e.target.value.slice(0, 2000) });
-              setShowNote(false);
-            }}
-          />
-        </div>
-      ) : (
-        <button type="button" className="no-print text-teal underline" onClick={() => setShowNote(true)}>
-          {r.note ? "Edit note" : "Add note"}
-        </button>
-      )}
+      <label className="block">
+        <span className="mb-1 block text-xs text-ink-soft">Reviewer note</span>
+        <textarea
+          key={`${itemKey}-${r.updatedAt}`}
+          aria-label="Reviewer note"
+          className="w-full rounded-md border border-line px-2 py-1.5 text-sm text-ink focus:border-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          rows={2}
+          defaultValue={r.note}
+          placeholder="Optional — saved when you leave the field"
+          onBlur={(e) => {
+            if (e.target.value !== r.note) save({ note: e.target.value.slice(0, 2000) });
+          }}
+        />
+      </label>
 
-      {dismissing ? (
-        <div className="no-print space-y-1">
-          <input
-            aria-label="Reason for dismissing"
-            className="w-full rounded border border-line px-2 py-1 text-xs text-ink"
-            placeholder="Why is this a false positive?"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <div className="flex gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant={r.reviewed ? "secondary" : "primary"} aria-pressed={r.reviewed} onClick={() => save({ reviewed: !r.reviewed })}>
+          {r.reviewed ? "✓ Reviewed — undo" : "Mark as reviewed"}
+        </Button>
+        {!dismissing && (
+          <Button variant="ghost" size="sm" onClick={() => setDismissing(true)}>
+            Dismiss as false positive…
+          </Button>
+        )}
+      </div>
+
+      {dismissing && (
+        <Notice tone="neutral">
+          <label className="block">
+            <span className="mb-1 block text-xs text-ink-soft">Why is this a false positive? (required)</span>
+            <input
+              aria-label="Reason for dismissing"
+              className="w-full rounded-md border border-line px-2 py-1.5 text-sm text-ink focus:border-teal focus:outline-none"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              autoFocus
+            />
+          </label>
+          <div className="mt-2 flex gap-2">
             <Button
-              className="px-2! py-1! text-xs!"
+              size="sm"
               variant="danger"
               disabled={reason.trim().length < 3}
               onClick={() => {
@@ -152,15 +181,11 @@ export function ReviewPanel({
             >
               Dismiss
             </Button>
-            <Button className="px-2! py-1! text-xs!" onClick={() => setDismissing(false)}>
+            <Button size="sm" onClick={() => setDismissing(false)}>
               Cancel
             </Button>
           </div>
-        </div>
-      ) : (
-        <button type="button" className="no-print ml-3 text-mute underline" onClick={() => setDismissing(true)}>
-          Dismiss as false positive
-        </button>
+        </Notice>
       )}
     </div>
   );

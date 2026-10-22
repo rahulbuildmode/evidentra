@@ -1,50 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { AnalysisResult } from "./analysis";
 import type { MappingResult } from "./mapping";
+import { useShared } from "./shared-fetch";
 
 interface Loaded {
-  ws: string;
   aiConfigured: boolean;
   model: string;
   analysis: AnalysisResult | null;
   mapping: MappingResult | null;
 }
 
-/** Latest saved AI analysis + requirement mapping for a workspace (both live on the server). */
+async function fetchResults(workspaceId: string): Promise<Loaded> {
+  const q = `workspaceId=${encodeURIComponent(workspaceId)}`;
+  const [a, m] = await Promise.all([fetch(`/api/analyze?${q}`), fetch(`/api/requirements/map?${q}`)]);
+  const ja = await a.json();
+  const jm = await m.json();
+  if (!a.ok) throw new Error(ja.error ?? "Could not load AI results.");
+  if (!m.ok) throw new Error(jm.error ?? "Could not load the evidence matches.");
+  return { aiConfigured: ja.aiConfigured, model: ja.model, analysis: ja.analysis, mapping: jm.mapping };
+}
+
+/** Latest saved AI analysis + evidence mapping for a workspace (both live on the server). */
 export function useResults(workspaceId: string) {
-  const [data, setData] = useState<Loaded | null>(null);
-  const [error, setError] = useState<{ ws: string; message: string } | null>(null);
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const q = `workspaceId=${encodeURIComponent(workspaceId)}`;
-    Promise.all([fetch(`/api/analyze?${q}`), fetch(`/api/requirements/map?${q}`)])
-      .then(async ([a, m]) => {
-        const ja = await a.json();
-        const jm = await m.json();
-        if (!a.ok) throw new Error(ja.error ?? "Could not load AI results.");
-        if (!m.ok) throw new Error(jm.error ?? "Could not load the evidence mapping.");
-        if (cancelled) return;
-        setData({ ws: workspaceId, aiConfigured: ja.aiConfigured, model: ja.model, analysis: ja.analysis, mapping: jm.mapping });
-        setError(null);
-      })
-      .catch((e: Error) => !cancelled && setError({ ws: workspaceId, message: e.message }));
-    return () => {
-      cancelled = true;
-    };
-  }, [workspaceId, version]);
-
-  const current = data?.ws === workspaceId ? data : null;
+  const e = useShared(`results:${workspaceId}`, () => fetchResults(workspaceId));
   return {
-    loading: current === null && error?.ws !== workspaceId,
-    error: error?.ws === workspaceId ? error.message : null,
-    aiConfigured: current?.aiConfigured ?? false,
-    model: current?.model ?? "",
-    analysis: current?.analysis ?? null,
-    mapping: current?.mapping ?? null,
-    refresh: () => setVersion((v) => v + 1),
+    loading: e.loading && e.data === undefined,
+    error: e.error ?? null,
+    aiConfigured: e.data?.aiConfigured ?? false,
+    model: e.data?.model ?? "",
+    analysis: e.data?.analysis ?? null,
+    mapping: e.data?.mapping ?? null,
+    refresh: e.refresh,
   };
 }

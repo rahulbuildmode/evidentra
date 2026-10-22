@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   if (!set) return fail(400, "bad_request", "Unknown requirement set.");
   try {
     return await runExclusive(`map:${workspaceId}`, async () => {
+      // A fresh serverless instance may not have the demo files yet.
+      await ensureDemoLoaded(workspaceId);
       const { docs } = await loadReadableDocuments(workspaceId);
       const mapping = await mapRequirements(workspaceId, set, docs);
       await saveMapping(mapping);

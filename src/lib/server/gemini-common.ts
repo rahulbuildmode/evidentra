@@ -68,7 +68,13 @@ function toApiError(err: unknown): AnalysisError {
     if (err.status === 404)
       return new AnalysisError("model_not_found", 502, `The model "${geminiModel()}" was not found for this key.`);
     if (err.status === 429)
-      return new AnalysisError("quota", 429, "Gemini quota or rate limit reached. Wait a minute and try again.");
+      return new AnalysisError(
+        "quota",
+        429,
+        /quota|billing|plan/i.test(msg)
+          ? "The Gemini API key has used up its quota. Check the key's plan and billing in Google AI Studio, or try again later."
+          : "Gemini rate limit reached. Wait a minute and try again.",
+      );
     if (err.status >= 500)
       return new AnalysisError(
         "unavailable",
