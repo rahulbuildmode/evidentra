@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { LoadDemoButton } from "@/components/evidence";
 import { Badge, Button, Card, DemoNotice, PageHeader } from "@/components/ui";
-import { actions, useAppState } from "@/lib/store";
+import { useAppState } from "@/lib/store";
 import { useUploads } from "@/lib/use-uploads";
 import {
   MAX_UPLOAD_BYTES,
@@ -41,7 +42,6 @@ export default function DocumentsPage() {
     { id: string; doc: UploadedDocument | null; error: string | null } | null
   >(null);
 
-  const demoDocs = state.documents.filter((d) => d.source === "demo");
   const slotsLeft = MAX_UPLOADS_PER_WORKSPACE - uploads.length - pending.length;
 
   async function onFiles(list: FileList | null) {
@@ -129,8 +129,9 @@ export default function DocumentsPage() {
       />
       {state.isDemo && (
         <DemoNotice>
-          Rows marked &quot;Fictional demo&quot; are made-up records with no file behind them. Your uploads are real files and
-          are marked &quot;Your upload&quot;.
+          Files marked &quot;Fictional demo&quot; are the made-up demo dossier (real PDFs, fictional content). Your own
+          files are marked &quot;Your upload&quot;.{" "}
+          {!loading && uploads.length === 0 && <LoadDemoButton onLoaded={refresh} />}
         </DemoNotice>
       )}
 
@@ -183,7 +184,7 @@ export default function DocumentsPage() {
                     </div>
                   </td>
                   <td className="py-3 pr-4">
-                    <Badge tone="teal">Your upload</Badge>
+                    {d.origin === "demo" ? <Badge tone="demo">Fictional demo</Badge> : <Badge tone="teal">Your upload</Badge>}
                   </td>
                   <td className="py-3 pr-4">
                     <Badge tone={STATUS_TONE[d.status]}>{STATUS_LABEL[d.status]}</Badge>
@@ -221,30 +222,7 @@ export default function DocumentsPage() {
                   </td>
                 </tr>
               ))}
-              {demoDocs.map((d) => (
-                <tr key={d.id} className="border-b border-line/60 align-top last:border-0">
-                  <td className="py-3 pr-4">
-                    <div className="font-medium text-ink">{d.filename}</div>
-                    <div className="text-xs text-mute">{d.title}</div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Badge tone="demo">Fictional demo</Badge>
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-ink-soft">Demo facts pre-loaded (no real file)</td>
-                  <td className="py-3 pr-4 text-ink-soft">{d.pages ?? "—"}</td>
-                  <td className="py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button disabled title="Demo records have no file">
-                        View text
-                      </Button>
-                      <Button variant="danger" onClick={() => actions.removeDocument(d.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!loading && uploads.length === 0 && pending.length === 0 && demoDocs.length === 0 && (
+              {!loading && uploads.length === 0 && pending.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-sm text-ink-soft">
                     No documents yet. Upload PDFs to get started.

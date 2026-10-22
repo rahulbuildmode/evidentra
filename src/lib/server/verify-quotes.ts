@@ -44,3 +44,18 @@ export function checkCitation(
   }
   return { ...base, filename: doc.filename, check: "not_found" };
 }
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** True if the quotation visibly contains the given YYYY-MM-DD date (ISO, numeric or month-name form). */
+export function dateAppearsInQuote(iso: string, quote: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d || m > 12 || d > 31) return false;
+  const q = normalizeForMatch(quote);
+  if (q.includes(iso)) return true;
+  if (!q.includes(String(y))) return false;
+  const rest = q.replace(String(y), " ");
+  const num = (n: number) => new RegExp(`(^|\\D)0?${n}(\\D|$)`);
+  const monthOk = rest.includes(MONTHS[m - 1]) || num(m).test(rest);
+  return monthOk && num(d).test(rest);
+}

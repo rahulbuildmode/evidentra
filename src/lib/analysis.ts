@@ -11,10 +11,13 @@ export const CONFIDENCE = ["high", "medium", "low"] as const;
 export const FACT_CATEGORIES = [
   "device_name",
   "model_number",
-  "manufacturer",
+  "manufacturer_name",
+  "manufacturer_address",
   "intended_use",
   "technical_specification",
   "referenced_standard",
+  "document_date",
+  "document_revision",
 ] as const;
 
 export type FactCategory = (typeof FACT_CATEGORIES)[number];
@@ -22,13 +25,21 @@ export type FactCategory = (typeof FACT_CATEGORIES)[number];
 export const CATEGORY_LABEL: Record<FactCategory, string> = {
   device_name: "Device name",
   model_number: "Model number",
-  manufacturer: "Manufacturer",
+  manufacturer_name: "Manufacturer name",
+  manufacturer_address: "Manufacturer address",
   intended_use: "Intended use",
   technical_specification: "Technical specification",
   referenced_standard: "Referenced standard",
+  document_date: "Document date",
+  document_revision: "Document revision",
 };
 
-const Citation = z.object({
+/** Older saved results may use categories that no longer exist. */
+export function categoryLabel(c: string): string {
+  return (CATEGORY_LABEL as Record<string, string>)[c] ?? c.replace(/_/g, " ");
+}
+
+export const CitationSchema = z.object({
   filename: z.string().min(1).max(300),
   page: z.number().int().min(1).nullable(),
   quote: z.string().min(1).max(600),
@@ -41,7 +52,9 @@ export const ModelOutputSchema = z.object({
         category: z.enum(FACT_CATEGORIES),
         label: z.string().min(1).max(200),
         value: z.string().min(1).max(1000),
-        citation: Citation,
+        /** For date facts only: the same date as YYYY-MM-DD, else null. Checked against the quote by code. */
+        normalized_date: z.string().nullable(),
+        citation: CitationSchema,
         confidence: z.enum(CONFIDENCE),
       }),
     )
@@ -60,7 +73,7 @@ export const ModelOutputSchema = z.object({
       z.object({
         topic: z.string().min(1).max(200),
         explanation: z.string().min(1).max(1000),
-        citations: z.array(Citation).min(2).max(6),
+        citations: z.array(CitationSchema).min(2).max(6),
         confidence: z.enum(CONFIDENCE),
       }),
     )
@@ -99,11 +112,15 @@ export interface AnalysisItem {
   citations: CheckedCitation[];
   modelConfidence: (typeof CONFIDENCE)[number];
   uncertainty: Uncertainty;
+  /** Date facts: YYYY-MM-DD, kept only if code confirmed it appears in the quotation. */
+  normalizedDate?: string | null;
 }
 
 export interface AnalysisResult {
   runId: string;
   workspaceId: string;
+  /** "demo-seed" results were written by hand for the fictional demo (quotes still verified by code). */
+  source?: "gemini" | "demo-seed";
   model: string;
   createdAt: string;
   documents: { id: string; filename: string; pageCount: number; charsSent: number; truncated: boolean }[];

@@ -21,12 +21,15 @@ function read(): AppState {
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as AppState;
-      if (parsed && parsed.workspace && Array.isArray(parsed.documents)) {
-        // Older saves had no workspace id and kept metadata-only upload records; uploads now live on the server.
+      if (parsed && parsed.workspace) {
+        // Older saves may lack newer fields (or carry retired ones); rebuild with defaults.
         state = {
-          ...parsed,
           workspaceId: parsed.workspaceId ?? (parsed.isDemo ? DEMO_STATE.workspaceId : BLANK_STATE.workspaceId),
-          documents: parsed.documents.filter((d) => d.source === "demo"),
+          isDemo: Boolean(parsed.isDemo),
+          workspace: parsed.workspace,
+          requirementSetId:
+            parsed.requirementSetId ?? (parsed.isDemo ? DEMO_STATE.requirementSetId : BLANK_STATE.requirementSetId),
+          decisions: parsed.decisions ?? {},
         };
       }
     } catch {
@@ -77,16 +80,9 @@ export const actions = {
     // A fresh id gives the new workspace its own, empty upload folder on the server.
     write({ ...BLANK_STATE, workspaceId: `ws-${crypto.randomUUID()}` });
   },
-  removeDocument(id: string) {
+  setRequirementSet(requirementSetId: string) {
     const s = read();
-    const gone = s.documents.find((d) => d.id === id);
-    write({
-      ...s,
-      documents: s.documents.filter((d) => d.id !== id),
-      facts: s.facts.filter((f) => f.documentId !== id),
-      // Evidence pointing at a removed file is no longer traceable, so drop it too.
-      evidence: s.evidence.filter((e) => !gone || e.filename !== gone.filename),
-    });
+    write({ ...s, requirementSetId });
   },
   setDecision(requirementId: string, decision: Decision) {
     const s = read();

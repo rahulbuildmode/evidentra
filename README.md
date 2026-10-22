@@ -11,11 +11,17 @@ AI-assisted regulatory documentation copilot for Indian medical-device manufactu
 | Overview | Live stats from the current workspace; shows AI key status |
 | Submission Workspace | Working form, auto-saved in your browser; every field is labelled *Unverified* until you tick it |
 | Documents | Upload up to 10 PDFs per workspace (max 4 MB each). Server checks type, size, empty files and the `%PDF-` signature, extracts text page by page, flags text-less PDFs as **needs OCR**, and records failed/damaged/password-protected PDFs with a clear error. "View text" shows the extracted text per PDF page |
-| Evidence Matrix | Requirement topics vs. cited passages, Approve/Reject buttons, CSV export |
-| Consistency Checks | **AI analysis of your uploads** (Gemini): facts, potential inconsistencies and potential missing information, each with source file, page, quotation (checked by code against the extracted text), uncertainty and Accept/Reject review. Plus plain-code checks: model number / name consistency and certificate expiry |
+| Evidence Matrix | Pick a requirement set, then "Map evidence with AI". Each requirement shows verification status and source, expected evidence, evidence status (Found / Partial / Missing / Conflicting / Needs review), source document, page and quotation, recommended next action and human review. Code verifies every quotation and downgrades any status its verified quotes don't support. CSV export |
+| Consistency Checks | Compares device name, model, manufacturer, intended use, specifications, dates and revisions. **Exact comparisons are plain TypeScript** on quote-verified facts; **Gemini** proposes differences in meaning. Each finding shows the conflicting values, documents, pages, passages and a review status. Discrepancies are never labelled legal violations |
 | Readiness Report | Summary for a human reviewer, CSV export, print to PDF |
 
-The seeded **demo workspace is fictional** (a made-up pulse oximeter, company and certificate, with a planted model-number mismatch and an expired sample certificate). It is badged "Demo" everywhere. Uploaded files are badged "Your upload".
+The **demo workspace is fictional**. "Load demo dossier" (or *Reload demo* on the Workspace page) uploads four made-up PDFs from `fixtures/demo-dossier/` and a hand-written, clearly labelled demo seed. Every seed quotation is re-verified by code against the PDF text on each load. The dossier demonstrates, against the synthetic checklist:
+
+- **Missing:** DEMO-06 biocompatibility evaluation (no such text anywhere in the dossier).
+- **Partial:** DEMO-05 risk analysis (hazards listed; "Risk control measures and residual risk evaluation: to be completed before design freeze.").
+- **Model-number mismatch:** DEMO-04 / consistency check ("Model number: AP-200A" in the device master file vs "Model: AP-2000A" in the IFU).
+
+Running real Gemini mapping on the dossier (both requirement sets) reproduced these results with all quotations verified.
 
 **Not built yet:** OCR for scanned PDFs, and AI-suggested evidence for the Evidence Matrix (it still shows demo-seeded suggestions only).
 
@@ -47,6 +53,13 @@ npm run build    # production build (also type-checks)
 | `EVIDENTRA_DATA_DIR` | Optional. Where uploads are stored. Default: `.data/` locally, `/tmp/evidentra-data` on Vercel. |
 
 `.env.local` is ignored by Git. Never commit a real key. `.env.example` holds the variable name only.
+
+## Requirement sets and regulatory sources
+
+See [REGULATORY_SOURCES.md](REGULATORY_SOURCES.md). Two sets exist and are never mixed:
+
+- **MDR 2017 — documents for a Class B/C/D manufacturing licence application (selected items).** Each item was checked against the CDSCO-published MDR 2017 text (as amended to 14 Oct 2022). Rows count as official only when the workspace says Class B/C/D and a manufacturing-licence pathway; otherwise they are labelled "reference only". Later amendments and the portal checklist were not reviewed.
+- **Synthetic demo checklist (FICTIONAL).** For the demo dossier only.
 
 ## AI analysis (Gemini)
 
@@ -92,12 +105,16 @@ src/app/api/analyze      runs / returns Gemini analysis for a workspace
 src/components/          AppShell (sidebar) and small UI pieces
 src/lib/demo-data.ts     the fictional demo workspace
 src/lib/requirements.ts  draft requirement topics + source links
-src/lib/checks.ts        deterministic consistency and expiry checks
 src/lib/store.ts         browser-only state (localStorage), no database
 src/lib/csv.ts           CSV export
 src/lib/gemini.ts        server-only Gemini client helper
 src/lib/server/          PDF extraction, private document/analysis store, Gemini prompt + call, quote verifier
 src/lib/analysis.ts      Zod schema for model output + result types
+src/lib/mapping.ts       evidence-mapping schema, statuses and the code rules that cap them
+src/lib/checks.ts        deterministic cross-document comparisons
+src/lib/server/gemini-map.ts   requirement-to-evidence mapping prompt
+src/lib/server/demo-seed.ts    hand-written demo seed (quotes verified at load)
+fixtures/demo-dossier/   fictional demo PDFs and their HTML sources
 src/components/AiAnalysisPanel.tsx  AI results UI with review controls
 src/lib/uploads.ts       shared upload types, limits and id checks
 src/app/api/documents    upload/list (route.ts) and view/delete ([id]/route.ts)
@@ -105,5 +122,6 @@ src/app/api/documents    upload/list (route.ts) and view/delete ([id]/route.ts)
 
 ## Next steps
 
-1. Ask Gemini to suggest evidence per requirement; humans approve or reject.
-2. Verify each requirement topic against official CDSCO text and record who checked it.
+1. Review MDR amendments after Oct 2022 and the portal checklist, then extend `REGULATORY_SOURCES.md` and the official set.
+2. Store review decisions on the server (they live in the browser today).
+3. Durable private storage and login before any real deployment.

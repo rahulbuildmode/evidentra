@@ -53,7 +53,15 @@ export default function WorkspacePage() {
         actions={
           <>
             <Button onClick={() => actions.startBlank()}>Start blank workspace</Button>
-            <Button onClick={() => actions.resetDemo()}>Reload demo</Button>
+            <Button
+              onClick={async () => {
+                actions.resetDemo();
+                // Re-create the demo dossier on the server (real PDFs + verified seed).
+                await fetch("/api/demo/load", { method: "POST" }).catch(() => null);
+              }}
+            >
+              Reload demo
+            </Button>
           </>
         }
       />

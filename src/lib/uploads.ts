@@ -22,6 +22,8 @@ export interface UploadedDocumentMeta {
   /** Pages with no extractable text (likely scanned images). */
   emptyPages: number[];
   error: string | null;
+  /** "demo" = loaded from the fictional demo dossier; absent/"user" = uploaded by the user. */
+  origin?: "demo" | "user";
 }
 
 export interface UploadedDocument extends UploadedDocumentMeta {

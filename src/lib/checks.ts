@@ -1,57 +1,20 @@
-import type { AppState, Fact, Finding } from "./types";
+import type { AnalysisResult } from "./analysis";
+import type { Finding, FindingCitation, Workspace } from "./types";
+
+/**
+ * Deterministic (plain-code) consistency checks. They only use AI-extracted facts whose
+ * quotations were verified in the PDF text, and compare values exactly after normalising.
+ * Semantic differences (meaning, paraphrase) are left to the AI findings and the reviewer.
+ */
 
 /** Uppercase and strip everything except letters and digits, so "AP-200A" equals "ap 200a". */
 export function normalizeIdentifier(s: string): string {
   return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-/** Company names: also ignore punctuation and the common "Pvt Ltd" style suffix noise. */
+/** Names and free text: ignore case, punctuation and spacing ("Pvt. Ltd." = "Pvt Ltd"). */
 export function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-const cite = (f: Fact) => ({ filename: f.filename, page: f.page, quote: f.quote });
-
-function consistency(
-  facts: Fact[],
-  field: Fact["field"],
-  label: string,
-  normalize: (s: string) => string,
-): Finding[] {
-  const group = facts.filter((f) => f.field === field);
-  if (group.length < 2) return [];
-  const distinct = new Map<string, Fact[]>();
-  for (const f of group) {
-    const key = normalize(f.value);
-    distinct.set(key, [...(distinct.get(key) ?? []), f]);
-  }
-  if (distinct.size > 1) {
-    const values = [...new Set(group.map((f) => f.value))];
-    return [
-      {
-        id: `c-${field}-mismatch`,
-        check: label,
-        severity: "fail",
-        title: `${label} differs across documents`,
-        detail: `Found ${values.length} different values: ${values.join(" vs ")}. A human should decide which is correct.`,
-        citations: group.map(cite),
-      },
-    ];
-  }
-  const rawValues = new Set(group.map((f) => f.value));
-  if (rawValues.size > 1) {
-    return [
-      {
-        id: `c-${field}-format`,
-        check: label,
-        severity: "info",
-        title: `${label} written differently but matches after normalising`,
-        detail: `Values: ${[...rawValues].join(" / ")}. Consider using one consistent spelling.`,
-        citations: group.map(cite),
-      },
-    ];
-  }
-  return [];
 }
 
 export function todayISO(now: Date = new Date()): string {
@@ -61,43 +24,148 @@ export function todayISO(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-function daysBetween(fromISO: string, toISO: string): number {
-  const a = Date.parse(`${fromISO}T00:00:00Z`);
-  const b = Date.parse(`${toISO}T00:00:00Z`);
-  return Math.round((b - a) / 86_400_000);
+export interface VerifiedFact {
+  id: string;
+  category: string;
+  label: string;
+  value: string;
+  filename: string;
+  page: number;
+  quote: string;
+  normalizedDate: string | null;
 }
 
-export function expiryFindings(facts: Fact[], today: string): Finding[] {
+/** Facts whose quotation was found in the extracted text (page set by code, not the model). */
+export function verifiedFactsOf(result: AnalysisResult | null): VerifiedFact[] {
+  if (!result) return [];
+  const out: VerifiedFact[] = [];
+  for (const it of result.items) {
+    const c = it.citations[0];
+    if (it.kind !== "fact" || !c || c.verifiedPage === null) continue;
+    out.push({
+      id: it.id,
+      category: it.category,
+      label: it.field,
+      value: it.value,
+      filename: c.filename,
+      page: c.verifiedPage,
+      quote: c.quote,
+      normalizedDate: it.normalizedDate ?? null,
+    });
+  }
+  return out;
+}
+
+const cite = (f: VerifiedFact): FindingCitation => ({ filename: f.filename, page: f.page, quote: f.quote, value: f.value });
+
+/** Same field across documents must match after normalising. */
+function compareAcrossDocuments(
+  facts: VerifiedFact[],
+  category: string,
+  label: string,
+  normalize: (s: string) => string,
+  mismatch: { severity: Finding["severity"]; note: string },
+): Finding[] {
+  const group = facts.filter((f) => f.category === category);
+  if (new Set(group.map((f) => f.filename)).size < 2) return [];
+  const keys = new Set(group.map((f) => normalize(f.value)));
+  if (keys.size > 1) {
+    const values = [...new Set(group.map((f) => f.value))];
+    return [
+      {
+        id: `cc-${category}-mismatch`,
+        check: label,
+        severity: mismatch.severity,
+        title: `${label} differs across documents`,
+        detail: `${values.length} different values: ${values.map((v) => `"${v}"`).join(" vs ")}. ${mismatch.note}`,
+        citations: group.map(cite),
+      },
+    ];
+  }
+  const raw = new Set(group.map((f) => f.value));
+  if (raw.size > 1) {
+    return [
+      {
+        id: `cc-${category}-format`,
+        check: label,
+        severity: "info",
+        title: `${label} written differently but identical after normalising`,
+        detail: `Values: ${[...raw].map((v) => `"${v}"`).join(" / ")}. Consider one consistent spelling.`,
+        citations: group.map(cite),
+      },
+    ];
+  }
+  return [];
+}
+
+/** Technical specifications: group by parameter name, compare values exactly. */
+function compareSpecifications(facts: VerifiedFact[]): Finding[] {
+  const specs = facts.filter((f) => f.category === "technical_specification");
+  const byParam = new Map<string, VerifiedFact[]>();
+  for (const f of specs) byParam.set(normalizeName(f.label), [...(byParam.get(normalizeName(f.label)) ?? []), f]);
   const out: Finding[] = [];
-  for (const f of facts.filter((x) => x.field === "certificate_expiry_date")) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.value) || Number.isNaN(Date.parse(f.value))) {
+  for (const [key, group] of byParam) {
+    if (new Set(group.map((f) => f.filename)).size < 2) continue;
+    if (new Set(group.map((f) => normalizeName(f.value))).size > 1) {
       out.push({
-        id: `c-expiry-unreadable-${f.id}`,
-        check: "Certificate validity",
-        severity: "warn",
-        title: "Could not read the certificate date",
-        detail: `The value "${f.value}" is not a valid YYYY-MM-DD date, so no expiry check was made.`,
-        citations: [cite(f)],
+        id: `cc-spec-${key}`,
+        check: "Technical specification",
+        severity: "fail",
+        title: `"${group[0].label}" differs across documents`,
+        detail: `Values: ${[...new Set(group.map((f) => f.value))].map((v) => `"${v}"`).join(" vs ")}. Confirm the correct value against test data.`,
+        citations: group.map(cite),
       });
-      continue;
     }
-    const days = daysBetween(today, f.value);
+  }
+  return out;
+}
+
+/** A single document should not state two different revisions. */
+function compareRevisions(facts: VerifiedFact[]): Finding[] {
+  const revs = facts.filter((f) => f.category === "document_revision");
+  const out: Finding[] = [];
+  for (const file of new Set(revs.map((f) => f.filename))) {
+    const group = revs.filter((f) => f.filename === file);
+    if (new Set(group.map((f) => normalizeIdentifier(f.value))).size > 1) {
+      out.push({
+        id: `cc-revision-${normalizeName(file)}`,
+        check: "Document revision",
+        severity: "warn",
+        title: `${file} states more than one revision`,
+        detail: `Revisions found: ${group.map((f) => `"${f.value}"`).join(", ")}.`,
+        citations: group.map(cite),
+      });
+    }
+  }
+  return out;
+}
+
+function daysBetween(fromISO: string, toISO: string): number {
+  return Math.round((Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) / 86_400_000);
+}
+
+/** "Valid until"/expiry dates (normalised and confirmed in the quote by the server) vs today. */
+function checkValidityDates(facts: VerifiedFact[], today: string): Finding[] {
+  const out: Finding[] = [];
+  for (const f of facts) {
+    if (f.category !== "document_date" || !/valid|expir/i.test(f.label) || !f.normalizedDate) continue;
+    const days = daysBetween(today, f.normalizedDate);
     if (days < 0) {
       out.push({
-        id: `c-expiry-${f.id}`,
-        check: "Certificate validity",
+        id: `cc-expired-${f.id}`,
+        check: "Validity date",
         severity: "fail",
-        title: "Certificate validity date has passed",
-        detail: `The document states validity until ${f.value}, which is ${Math.abs(days)} days before ${today}.`,
+        title: `Validity date has passed (${f.filename})`,
+        detail: `The document states "${f.value}" (${f.normalizedDate}), ${Math.abs(days)} days before ${today}.`,
         citations: [cite(f)],
       });
     } else if (days <= 90) {
       out.push({
-        id: `c-expiry-soon-${f.id}`,
-        check: "Certificate validity",
+        id: `cc-expiring-${f.id}`,
+        check: "Validity date",
         severity: "warn",
-        title: "Certificate validity ends within 90 days",
-        detail: `The document states validity until ${f.value} (${days} days from ${today}).`,
+        title: `Validity ends within 90 days (${f.filename})`,
+        detail: `The document states "${f.value}" (${f.normalizedDate}), ${days} days after ${today}.`,
         citations: [cite(f)],
       });
     }
@@ -105,44 +173,47 @@ export function expiryFindings(facts: Fact[], today: string): Finding[] {
   return out;
 }
 
-function workspaceVsDocuments(state: AppState): Finding[] {
-  const entered = state.workspace.modelNumber.value.trim();
-  const models = state.facts.filter((f) => f.field === "model_number");
+function workspaceVsDocuments(facts: VerifiedFact[], ws: Workspace): Finding[] {
+  const entered = ws.modelNumber.value.trim();
+  const models = facts.filter((f) => f.category === "model_number");
   if (!entered || models.length === 0) return [];
-  const key = normalizeIdentifier(entered);
-  const off = models.filter((f) => normalizeIdentifier(f.value) !== key);
+  const off = models.filter((f) => normalizeIdentifier(f.value) !== normalizeIdentifier(entered));
   if (off.length === 0) return [];
   return [
     {
-      id: "c-workspace-model",
+      id: "cc-workspace-model",
       check: "Workspace vs documents",
       severity: "fail",
       title: "Workspace model number does not match some documents",
-      detail: `Workspace says "${entered}", but ${off.length} document(s) show a different model number.`,
+      detail: `The workspace says "${entered}", but ${off.length} passage(s) give a different model number.`,
       citations: off.map(cite),
     },
   ];
 }
 
 /** `today` is null until the browser clock is known; date checks are skipped in that case. */
-export function runChecks(state: AppState, today: string | null): Finding[] {
-  const f = state.facts;
+export function crossCheck(result: AnalysisResult | null, ws: Workspace, today: string | null): Finding[] {
+  const facts = verifiedFactsOf(result);
   return [
-    ...consistency(f, "model_number", "Model number", normalizeIdentifier),
-    ...consistency(f, "manufacturer_name", "Manufacturer name", normalizeName),
-    ...consistency(f, "device_name", "Device name", normalizeName),
-    ...(today ? expiryFindings(f, today) : []),
-    ...workspaceVsDocuments(state),
+    ...compareAcrossDocuments(facts, "model_number", "Model number", normalizeIdentifier, {
+      severity: "fail",
+      note: "A reviewer should confirm which value is correct.",
+    }),
+    ...compareAcrossDocuments(facts, "device_name", "Device name", normalizeName, {
+      severity: "fail",
+      note: "A reviewer should confirm which name is correct.",
+    }),
+    ...compareAcrossDocuments(facts, "manufacturer_name", "Manufacturer name", normalizeName, {
+      severity: "fail",
+      note: "A reviewer should confirm the legal manufacturer name.",
+    }),
+    ...compareAcrossDocuments(facts, "intended_use", "Intended use wording", normalizeName, {
+      severity: "warn",
+      note: "This is an exact-text comparison; see the AI findings for whether the meaning differs.",
+    }),
+    ...compareSpecifications(facts),
+    ...compareRevisions(facts),
+    ...(today ? checkValidityDates(facts, today) : []),
+    ...workspaceVsDocuments(facts, ws),
   ];
-}
-
-/**
- * Plain-code cross-check of AI-extracted facts whose quotes were verified in the PDF text.
- * Only identifiers and names are compared; free text (addresses, specs) is left to the reviewer.
- */
-export function checkVerifiedAiFacts(facts: Fact[]): Finding[] {
-  return [
-    ...consistency(facts, "model_number", "Model number", normalizeIdentifier),
-    ...consistency(facts, "device_name", "Device name", normalizeName),
-  ].map((f) => ({ ...f, id: `ai-${f.id}` }));
 }

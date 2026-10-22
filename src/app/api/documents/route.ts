@@ -1,12 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { listDocuments, saveDocument, toMeta } from "@/lib/server/document-store";
-import { extractPdfPages } from "@/lib/server/pdf-extract";
-import {
-  isSafeId,
-  MAX_UPLOAD_BYTES,
-  MAX_UPLOADS_PER_WORKSPACE,
-  type UploadedDocument,
-} from "@/lib/uploads";
+import { listDocuments } from "@/lib/server/document-store";
+import { ingestPdf } from "@/lib/server/ingest";
+import { isSafeId, MAX_UPLOAD_BYTES, MAX_UPLOADS_PER_WORKSPACE } from "@/lib/uploads";
 
 const fail = (status: number, error: string) => Response.json({ error }, { status });
 
@@ -53,32 +47,11 @@ export async function POST(request: Request) {
     return fail(415, `${filename}: this does not look like a real PDF (it may be renamed or corrupt).`);
   }
 
-  const result = await extractPdfPages(bytes);
-  const pages = result.ok ? result.pages : [];
-  const charCount = pages.reduce((n, p) => n + p.text.replace(/\s/g, "").length, 0);
-  const doc: UploadedDocument = {
-    id: randomUUID(),
-    workspaceId,
-    filename,
-    sizeBytes: file.size,
-    uploadedAt: new Date().toISOString(),
-    status: !result.ok ? "failed" : charCount < 20 ? "needs_ocr" : "extracted",
-    pageCount: result.ok ? result.pageCount : null,
-    charCount,
-    emptyPages: pages.filter((p) => p.text.length === 0).map((p) => p.page),
-    error: result.ok
-      ? charCount < 20
-        ? "No extractable text was found. This is probably a scanned image; OCR is not supported yet."
-        : null
-      : result.error,
-    pages,
-  };
-
   try {
-    await saveDocument(doc, bytes);
+    const document = await ingestPdf(workspaceId, filename, bytes, "user");
+    return Response.json({ document }, { status: 201 });
   } catch (err) {
     console.error("[documents] save failed", err);
     return fail(500, `${filename}: the file could not be saved on the server.`);
   }
-  return Response.json({ document: toMeta(doc) }, { status: 201 });
 }
