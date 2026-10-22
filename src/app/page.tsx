@@ -1,27 +1,13 @@
 "use client";
 
 import { EvidenceInspector } from "@/components/EvidenceInspector";
-import { Anomalies } from "@/components/experience/Anomalies";
-import { Brief } from "@/components/experience/Brief";
-import { Dossier } from "@/components/experience/Dossier";
-import { FinalCta } from "@/components/experience/FinalCta";
-import { Signal } from "@/components/experience/Signal";
-import { TopNav } from "@/components/experience/TopNav";
-import { useAppState } from "@/lib/store";
+import { Workspace } from "@/components/workspace/Workspace";
 
-/** One continuous journey: upload documents → find evidence and inconsistencies → readiness brief. */
+/** Evidentra is one compact workspace: 01 Dossier → 02 Findings → 03 CDSCO readiness. */
 export default function Home() {
-  const { isDemo } = useAppState();
   return (
     <>
-      <TopNav isDemo={isDemo} onLight />
-      <main>
-        <Signal isDemo={isDemo} />
-        <Dossier />
-        <Anomalies />
-        <Brief />
-        <FinalCta />
-      </main>
+      <Workspace />
       <EvidenceInspector />
     </>
   );

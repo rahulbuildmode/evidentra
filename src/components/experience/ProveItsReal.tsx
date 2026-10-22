@@ -416,16 +416,8 @@ export function ProveItsReal() {
   const { state } = useGapReport();
   const proofWs = proofWorkspaceId(state.workspaceId);
   return (
-    <section id="prove-it" aria-labelledby="prove-title" className="mt-20 scroll-mt-24">
-      <div className="mb-5">
-        <div className="font-mono text-[11px] uppercase tracking-[0.24em] text-ion">Prove it&apos;s real</div>
-        <h3 id="prove-title" className="mt-1 text-2xl font-bold tracking-tight">
-          Test the backend yourself
-        </h3>
-        <p className="mt-1 max-w-2xl text-sm text-porcelain/60">
-          Each test calls the real server and shows exactly what it answered. Tests B–E use a separate test workspace, so they never change your dossier.
-        </p>
-      </div>
+    <div id="prove-it">
+      <p className="mb-3 text-xs text-porcelain/55">Each test calls the real server and shows its answer. Tests B–E use a separate test workspace.</p>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
         <TestA />
         <TestB proofWs={proofWs} />
@@ -433,6 +425,6 @@ export function ProveItsReal() {
         <TestD />
         <TestE proofWs={proofWs} />
       </div>
-    </section>
+    </div>
   );
 }

@@ -42,24 +42,13 @@ Open <http://localhost:3000>. The app opens on your own empty dossier; **Try the
 
 ## Demo script (about 3 minutes)
 
-1. Open the site. The opening ("Complexity is the enemy. Evidence is the answer.") → **Analyse a dossier**.
-2. **01 Dossier Intelligence** — drop PDFs (or **Try the synthetic sample**, clearly labelled *SYNTHETIC DEMO DATA*). Each file shows a real processing state; **View text** shows the extracted text page by page.
-3. **Analyse dossier** — one button starts a server run (`POST /api/runs`) and streams its real events. The **Engine Room** shows each step as the server reports it: upload and validation → text extraction → AI request 1 → quote verification → deterministic checks → AI request 2 → save, with server timestamps, durations, AI network requests (including retries), token usage reported by Gemini, quotations checked and comparisons executed. Every count opens the records behind it. A failed step (e.g. quota) is shown as failed; later steps are marked skipped with the reason.
-4. **Extracted evidence** — every passage is a verified quote with its page; field names and values are labelled as AI suggestions.
-5. **02 Anomaly Engine** — each inconsistency shows the two sides, the conflicting values highlighted inside the real quotes, documents and pages. **Mark as reviewed**.
-6. **Prove it's real** (inside Dossier Intelligence) — five tests against the real backend: upload your own PDF; a renamed / empty / corrupt file; the blank "scanned" PDF; invented, wrong-page and unknown-file quotations through the real verifier; and the prompt-injection fixture through the real AI request.
-7. **Inspect raw evidence** on any quotation or finding — the actual page text, the AI's original proposal next to what code verified, and the review state.
-8. **03 CDSCO Readiness Brief** — key findings, unresolved issues, next actions and verified regulatory references, each labelled as confirmed in text, AI suggestion, demo data, reviewed by you or needing human review. **Print / save PDF** or **Download CSV**.
+Evidentra is one compact workspace with three steps (top bar; the step is in the URL hash, so Back works and run state is kept):
 
-## The three features
+1. **01 Dossier** (`/#dossier`) — *Analyse a dossier* (your own, empty dossier) or *Try synthetic demo* (labelled SYNTHETIC DEMO DATA). Drag PDFs in; each shows its real server-side extraction status. Confirm **device and pathway** (applicability is decided by code from these details). Press **Analyse dossier** and watch the step strip fill from real server events. *View analysis details* opens the Engine Room; *Demo tests* holds the backend tests (bad file, scanned PDF, unsupported quote, prompt injection).
+2. **02 Findings** (`/#findings`) — *Potential inconsistencies* and *Evidence*. Select an item to see the quotations, documents, pages and verification result; *Inspect source text* highlights the quote in the extracted page; *Mark as reviewed* records your decision.
+3. **03 CDSCO readiness** (`/#readiness`) — every requirement check with its status (filterable), official source excerpt and link, applicability rationale, evidence and next action; next actions and unresolved items alongside; CSV export.
 
-| Feature | Where | What it does |
-| --- | --- | --- |
-| Dossier Intelligence | `/#dossier` | PDF upload and validation, real text extraction, page-by-page text viewer, the single **Analyse dossier** action, extracted evidence with verified quotes and pages |
-| Anomaly Engine | `/#anomalies` | Cross-document inconsistencies (exact code checks + AI semantic suggestions) with the conflicting values, quotations, documents and pages; mark as reviewed |
-| CDSCO Readiness Brief | `/#report` | One concise report: key findings, unresolved issues, next actions, verified MDR 2017 references (applicability marked unresolved); print/PDF and CSV |
-
-Everything is one page (`src/app/page.tsx`). The old routes (`/workspace`, `/documents`, `/evidence-matrix`, `/consistency-checks`, `/readiness-report`) redirect to the matching section.
+For a full dossier, upload the 9 PDFs in `fixtures/full-dossier/` (see its README).
 
 ## CDSCO validation (one pathway)
 
@@ -106,7 +95,7 @@ See **[REGULATORY_SOURCES.md](REGULATORY_SOURCES.md)**.
 
 ## Human review
 
-In the Anomaly Engine a reviewer can **mark a finding as reviewed**. Reviews are saved in the browser per dossier and keyed by what the finding is (not by AI run), so they survive re-running the analysis; if the evidence changes afterwards the finding says so. Reviews are not shared between browsers or users yet.
+In 02 Findings a reviewer can **mark a finding as reviewed**. Reviews are saved in the browser per dossier and keyed by what the finding is (not by AI run), so they survive re-running the analysis; if the evidence changes afterwards the finding says so. Reviews are not shared between browsers or users yet.
 
 ## CSV exports
 
@@ -181,10 +170,10 @@ gh repo create <your-account>/evidentra --private --source . --push
 ## Project layout
 
 ```
-src/app/page.tsx                     the whole experience (opening → 3 chapters → final call to action)
-src/components/experience/           Signal (opening), Dossier, Anomalies, Brief, FinalCta, TopNav, Molecule, Reveal
+src/app/page.tsx                     the workspace (01 Dossier → 02 Findings → 03 CDSCO readiness)
+src/components/workspace/            Workspace shell + steps: DossierStep, FindingsStep, ReadinessStep, RunProgress
 src/components/AnalyzeAction.tsx     the single "Analyse dossier" action (starts a streamed run)
-src/components/experience/EngineRoom.tsx, HowItWorks.tsx, ProveItsReal.tsx   run trace, explainer, backend tests
+src/components/experience/EngineRoom.tsx, ProveItsReal.tsx, DevicePathway.tsx   run trace, backend tests, device/pathway form
 src/components/EvidenceInspector.tsx raw-evidence side panel
 src/lib/run.ts, run-view.ts, run-client.ts                                 run types, event reducer, client stream/replay
 src/app/api/                         documents, runs, proof, analyze, requirements/map, demo/load, health

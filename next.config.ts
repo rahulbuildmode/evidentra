@@ -20,9 +20,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/workspace", destination: "/#dossier", permanent: false },
       { source: "/documents", destination: "/#dossier", permanent: false },
-      { source: "/evidence-matrix", destination: "/#report", permanent: false },
-      { source: "/consistency-checks", destination: "/#anomalies", permanent: false },
-      { source: "/readiness-report", destination: "/#report", permanent: false },
+      { source: "/evidence-matrix", destination: "/#readiness", permanent: false },
+      { source: "/consistency-checks", destination: "/#findings", permanent: false },
+      { source: "/readiness-report", destination: "/#readiness", permanent: false },
     ];
   },
   turbopack: {

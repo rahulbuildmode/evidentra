@@ -167,71 +167,46 @@ export function DevicePathway() {
   const d = report?.decision;
   const tone = d?.status === "in_scope" ? "border-ion/40" : d?.status === "out_of_scope" ? "border-crimson/50" : "border-lime/50";
 
-  return (
-    <section aria-labelledby="pathway-title" className="panel mt-6 rounded-2xl p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.24em] text-ion">Step 2 · Device and pathway</div>
-          <h3 id="pathway-title" className="mt-1 text-xl font-semibold">
-            Confirm what is being validated
-          </h3>
-          <p className="mt-1 max-w-2xl text-sm text-porcelain/60">
-            Applicability of each CDSCO requirement is decided by code from these details — never by the AI. Leave anything you are unsure of as
-            “Not sure yet”.
-          </p>
-        </div>
-        {profile?.origin === "demo" && (
-          <span className="rounded-full border border-lime/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-lime">Synthetic demo data</span>
-        )}
-      </div>
+  const cls = !profile || profile.riskClass === "unknown" ? "Class not stated" : `Class ${profile.riskClass}${profile.riskClassConfirmed ? "" : " (unconfirmed)"}`;
+  const activity = !profile || profile.activity === "unknown" ? "activity not stated" : profile.activity === "manufacture" ? "manufacture in India" : "import";
 
-      {error && <p className="mt-3 text-sm text-crimson">{error}</p>}
+  return (
+    <section aria-labelledby="pathway-title" className="rounded-xl border hairline p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="pathway-title" className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
+          Device and pathway
+        </h3>
+        <div className="flex items-center gap-2">
+          {profile?.origin === "demo" && <span className="rounded-full border border-lime/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-lime">Synthetic</span>}
+          {profile && !editing && (
+            <button type="button" onClick={() => setEditing(true)} className="press rounded-full border border-ion/50 px-3 py-1 text-xs text-ion hover:bg-ion/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <p className="mt-2 text-sm text-crimson">{error}</p>}
       {profile && !editing && (
-        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1.2fr]">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dt className="text-porcelain/50">Device</dt>
-            <dd>{profile.deviceName || "Not stated"}</dd>
-            <dt className="text-porcelain/50">Manufacturer</dt>
-            <dd>{profile.manufacturer || "Not stated"}</dd>
-            <dt className="text-porcelain/50">Category</dt>
-            <dd>{profile.deviceCategory || "Not stated"}</dd>
-            <dt className="text-porcelain/50">Risk class</dt>
-            <dd>
-              {profile.riskClass === "unknown" ? "Not stated" : `Class ${profile.riskClass}`}{" "}
-              {profile.riskClass !== "unknown" && (
-                <span className={profile.riskClassConfirmed ? "text-ion" : "text-lime"}>· {profile.riskClassConfirmed ? "confirmed by you" : "not confirmed"}</span>
-              )}
-            </dd>
-            <dt className="text-porcelain/50">Activity</dt>
-            <dd>{profile.activity === "unknown" ? "Not stated" : profile.activity === "manufacture" ? "Manufacture in India" : "Import"}</dd>
-            <dt className="text-porcelain/50">IVD</dt>
-            <dd>{TRI[profile.ivd]}</dd>
-            <dt className="text-porcelain/50">Application</dt>
-            <dd>{profile.licenceType === "unknown" ? "Not stated" : profile.licenceType === "licence" ? "Licence" : "Loan licence"}</dd>
-            <dt className="text-porcelain/50">Test licence</dt>
-            <dd>{TRI[profile.testLicence]}</dd>
-          </dl>
-          <div className={`rounded-xl border p-4 text-sm ${tone}`}>
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-porcelain/50">Pathway decision (code)</div>
-            <div className="mt-1 font-semibold">{d?.label ?? "…"}</div>
-            {d?.form && <div className="mt-1 text-porcelain/70">{d.form}</div>}
-            {d?.reasons.map((r) => (
-              <p key={r} className="mt-1 text-xs text-lime">
+        <div className="mt-2 space-y-2 text-sm">
+          <p className="truncate font-medium" title={profile.deviceName}>
+            {profile.deviceName || "Device not named yet"}
+          </p>
+          <p className="text-xs text-porcelain/60">
+            {cls} · {activity} · IVD: {TRI[profile.ivd].toLowerCase()} · test licence: {TRI[profile.testLicence].toLowerCase()}
+          </p>
+          <div className={`rounded-lg border px-3 py-2 ${tone}`}>
+            <div className="text-xs font-semibold">{d?.status === "in_scope" ? d.form : (d?.label ?? "…")}</div>
+            {d?.reasons.slice(0, 1).map((r) => (
+              <p key={r} className="mt-0.5 text-[11px] text-lime">
                 {r}
               </p>
             ))}
-            <p className="mt-3 text-xs text-porcelain/55">
-              Library v{MFG_LICENCE_BCD.libraryVersion} · {MFG_LICENCE_BCD.requirements.length} selected items · checked {MFG_LICENCE_BCD.lastReviewed} against{" "}
+            <p className="mt-1 text-[11px] text-porcelain/45">
+              Applicability decided by code ·{" "}
               <a href={MFG_LICENCE_BCD.source.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                MDR 2017 (CDSCO PDF, as amended to 14 Oct 2022) ↗
+                MDR 2017 library v{MFG_LICENCE_BCD.libraryVersion}
               </a>
-              . Supported: {MFG_LICENCE_BCD.name}. Not covered: import, Class A, IVD, loan licences.
             </p>
-          </div>
-          <div className="md:col-span-2">
-            <button type="button" onClick={() => setEditing(true)} className="press rounded-full border border-ion/50 px-4 py-1.5 text-xs font-medium text-ion hover:bg-ion/10">
-              Edit device and pathway
-            </button>
           </div>
         </div>
       )}
