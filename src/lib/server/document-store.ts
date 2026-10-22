@@ -8,7 +8,7 @@ import { isSafeId } from "../uploads";
  * so files are never served directly. Locally this is `.data/` (git-ignored).
  * On Vercel only /tmp is writable and it is wiped between instances — see README.
  */
-function root(): string {
+export function dataRoot(): string {
   if (process.env.EVIDENTRA_DATA_DIR) return process.env.EVIDENTRA_DATA_DIR;
   if (process.env.VERCEL) return "/tmp/evidentra-data";
   return path.join(process.cwd(), ".data");
@@ -16,7 +16,7 @@ function root(): string {
 
 function workspaceDir(workspaceId: string): string {
   if (!isSafeId(workspaceId)) throw new Error("Invalid workspace id");
-  return path.join(root(), "uploads", workspaceId);
+  return path.join(dataRoot(), "uploads", workspaceId);
 }
 
 function recordPath(workspaceId: string, id: string): string {

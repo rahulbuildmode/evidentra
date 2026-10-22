@@ -135,3 +135,14 @@ export function runChecks(state: AppState, today: string | null): Finding[] {
     ...workspaceVsDocuments(state),
   ];
 }
+
+/**
+ * Plain-code cross-check of AI-extracted facts whose quotes were verified in the PDF text.
+ * Only identifiers and names are compared; free text (addresses, specs) is left to the reviewer.
+ */
+export function checkVerifiedAiFacts(facts: Fact[]): Finding[] {
+  return [
+    ...consistency(facts, "model_number", "Model number", normalizeIdentifier),
+    ...consistency(facts, "device_name", "Device name", normalizeName),
+  ].map((f) => ({ ...f, id: `ai-${f.id}` }));
+}

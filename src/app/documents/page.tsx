@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { Badge, Button, Card, DemoNotice, PageHeader } from "@/components/ui";
 import { actions, useAppState } from "@/lib/store";
@@ -117,9 +118,12 @@ export default function DocumentsPage() {
             <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={slotsLeft <= 0 || pending.length > 0}>
               {pending.length > 0 ? "Uploading…" : "Upload PDFs"}
             </Button>
-            <Button disabled title="Available once AI extraction is built">
-              Analyse with AI
-            </Button>
+            <Link
+              href="/consistency-checks#ai"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink hover:bg-background"
+            >
+              Analyse with AI →
+            </Link>
           </>
         }
       />

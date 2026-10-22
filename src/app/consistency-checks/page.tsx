@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AiAnalysisPanel } from "@/components/AiAnalysisPanel";
 import { Badge, Button, Card, DemoNotice, PageHeader } from "@/components/ui";
 import { runChecks, todayISO } from "@/lib/checks";
 import { useAppState, useToday } from "@/lib/store";
@@ -23,7 +24,7 @@ export default function ConsistencyChecksPage() {
     <>
       <PageHeader
         title="Consistency Checks"
-        subtitle="Deterministic comparisons across document facts: identifiers, names and certificate dates. No AI is used here."
+        subtitle="AI-assisted analysis of your uploads, plus deterministic comparisons of identifiers, names and certificate dates."
         actions={
           <Button
             variant="primary"
@@ -36,14 +37,17 @@ export default function ConsistencyChecksPage() {
           </Button>
         }
       />
+      <AiAnalysisPanel />
+
+      <h2 className="mb-3 text-base font-semibold text-ink">Deterministic checks on workspace facts</h2>
       {state.isDemo && <DemoNotice>These findings come from deliberately planted errors in fictional demo documents.</DemoNotice>}
       <p className="mb-4 text-xs text-mute">Dates checked as of {asOf ?? "…"} (this device&apos;s clock).</p>
 
       {state.facts.length === 0 ? (
         <Card>
           <p className="text-sm text-ink-soft">
-            No extracted facts to compare yet. Uploaded files are not analysed in this build, so no findings are shown.
-            This does not mean your documents are consistent.
+            No workspace facts to compare. For uploaded PDFs, use the AI analysis above. An empty result here does not mean
+            your documents are consistent.
           </p>
         </Card>
       ) : shown.length === 0 ? (

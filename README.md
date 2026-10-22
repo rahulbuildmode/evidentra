@@ -12,12 +12,12 @@ AI-assisted regulatory documentation copilot for Indian medical-device manufactu
 | Submission Workspace | Working form, auto-saved in your browser; every field is labelled *Unverified* until you tick it |
 | Documents | Upload up to 10 PDFs per workspace (max 4 MB each). Server checks type, size, empty files and the `%PDF-` signature, extracts text page by page, flags text-less PDFs as **needs OCR**, and records failed/damaged/password-protected PDFs with a clear error. "View text" shows the extracted text per PDF page |
 | Evidence Matrix | Requirement topics vs. cited passages, Approve/Reject buttons, CSV export |
-| Consistency Checks | Plain-code checks: model number, manufacturer and device name consistency; certificate expiry |
+| Consistency Checks | **AI analysis of your uploads** (Gemini): facts, potential inconsistencies and potential missing information, each with source file, page, quotation (checked by code against the extracted text), uncertainty and Accept/Reject review. Plus plain-code checks: model number / name consistency and certificate expiry |
 | Readiness Report | Summary for a human reviewer, CSV export, print to PDF |
 
 The seeded **demo workspace is fictional** (a made-up pulse oximeter, company and certificate, with a planted model-number mismatch and an expired sample certificate). It is badged "Demo" everywhere. Uploaded files are badged "Your upload".
 
-**Not built yet:** OCR for scanned PDFs, and Gemini-based fact extraction and evidence suggestions. The Evidence Matrix and Consistency Checks still use only the fictional demo facts; uploaded text is not analysed yet. `src/lib/gemini.ts` and `POST /api/analyze` are placeholders; `/api/analyze` returns HTTP 501 and no findings.
+**Not built yet:** OCR for scanned PDFs, and AI-suggested evidence for the Evidence Matrix (it still shows demo-seeded suggestions only).
 
 ## Run it locally
 
@@ -43,9 +43,24 @@ npm run build    # production build (also type-checks)
 | Name | Purpose |
 | --- | --- |
 | `GEMINI_API_KEY` | Google Gemini API key. Read **only on the server** (`src/lib/gemini.ts`). Never prefix it with `NEXT_PUBLIC_`. |
+| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.8-flash` (stable Flash model, checked against Google's model list in Oct 2026). |
 | `EVIDENTRA_DATA_DIR` | Optional. Where uploads are stored. Default: `.data/` locally, `/tmp/evidentra-data` on Vercel. |
 
 `.env.local` is ignored by Git. Never commit a real key. `.env.example` holds the variable name only.
+
+## AI analysis (Gemini)
+
+`POST /api/analyze` sends the extracted text of a workspace's readable uploads to Gemini with Google's official `@google/genai` SDK, asks for JSON matching a schema, and validates the reply with Zod.
+
+- **Key safety:** `GEMINI_API_KEY` is read only in server code. It is never sent to the browser or included in API responses or logs. Check your key and model with `npm run check:gemini` (prints no secrets).
+- **Traceability:** every fact and inconsistency carries filename, page and a quotation. Code then searches the real extracted text: *verified* (found on that page), *found on another page* (page corrected by code), *not found* or *unknown file*. Unverified items are shown in red with high uncertainty; nothing is hidden or silently fixed.
+- **Untrusted input:** PDF text is wrapped as data, and the model is told never to follow instructions inside it. The fixture `fixtures/device_description_AP-200A.pdf` contains a deliberate prompt-injection line to test this.
+- **Limits:** up to 40,000 characters per document and 150,000 in total (~40k tokens); output capped at 16,384 tokens; 90 s timeout; one run at a time per workspace.
+- **Errors:** missing key, rejected key, quota/rate limit (429), overload (503, retried twice), timeouts, blocked content and malformed output (retried once) each return a plain message. A failed run never overwrites the previous result.
+- **Not legal advice:** missing information means "not found in the uploaded documents". The model is told not to invent regulatory requirements; the requirement list remains a separate, unverified draft.
+- **Storage:** the latest result per workspace is saved in `.data/analyses/` (same limits as uploads below). Accept/Reject decisions are saved in your browser.
+
+Fictional test PDFs (with their HTML sources) are in `fixtures/`.
 
 ## Upload storage and its limits
 
@@ -73,7 +88,7 @@ Vercel functions have a read-only filesystem except `/tmp`, which is temporary a
 ```
 src/app/                 pages (one folder per dashboard page) and API routes
 src/app/api/health       reports whether a key is configured (never returns the key)
-src/app/api/analyze      placeholder for the AI step (501 for now)
+src/app/api/analyze      runs / returns Gemini analysis for a workspace
 src/components/          AppShell (sidebar) and small UI pieces
 src/lib/demo-data.ts     the fictional demo workspace
 src/lib/requirements.ts  draft requirement topics + source links
@@ -81,13 +96,14 @@ src/lib/checks.ts        deterministic consistency and expiry checks
 src/lib/store.ts         browser-only state (localStorage), no database
 src/lib/csv.ts           CSV export
 src/lib/gemini.ts        server-only Gemini client helper
-src/lib/server/          PDF text extraction + private on-disk document store
+src/lib/server/          PDF extraction, private document/analysis store, Gemini prompt + call, quote verifier
+src/lib/analysis.ts      Zod schema for model output + result types
+src/components/AiAnalysisPanel.tsx  AI results UI with review controls
 src/lib/uploads.ts       shared upload types, limits and id checks
 src/app/api/documents    upload/list (route.ts) and view/delete ([id]/route.ts)
 ```
 
 ## Next steps
 
-1. Call Gemini for structured facts (value + exact quote + page) and verify each quote exists on that page in code.
-2. Ask Gemini to suggest evidence per requirement; humans approve or reject.
-3. Verify each requirement topic against official CDSCO text and record who checked it.
+1. Ask Gemini to suggest evidence per requirement; humans approve or reject.
+2. Verify each requirement topic against official CDSCO text and record who checked it.

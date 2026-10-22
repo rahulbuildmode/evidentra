@@ -102,7 +102,7 @@ export default function OverviewPage() {
             </li>
             <li className="flex items-start justify-between gap-3">
               <span>AI analysis (Gemini)</span>
-              {ai === "ready" && <Badge tone="teal">Key configured — analysis not built yet</Badge>}
+              {ai === "ready" && <Badge tone="teal">Key configured on server</Badge>}
               {ai === "missing" && <Badge tone="warn">No API key set</Badge>}
               {ai === "checking" && <Badge>Checking…</Badge>}
               {ai === "error" && <Badge tone="bad">Status unavailable</Badge>}
