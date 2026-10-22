@@ -17,7 +17,7 @@ const STATUS_STYLE = {
   pending: { icon: "", ring: "border-porcelain/20 text-porcelain/30", text: "Waiting" },
   running: { icon: "•", ring: "anim-pulse border-ion text-ion", text: "Running" },
   completed: { icon: "✓", ring: "border-ion bg-ion text-obsidian", text: "Completed" },
-  failed: { icon: "!", ring: "border-crimson text-crimson", text: "Failed" },
+  failed: { icon: "!", ring: "border-coral text-coral", text: "Failed" },
   skipped: { icon: "–", ring: "border-porcelain/30 text-porcelain/50", text: "Skipped" },
 } as const;
 
@@ -25,8 +25,8 @@ function Chip({ children, tone }: { children: ReactNode; tone: "live" | "saved" 
   const cls = {
     live: "border-ion/60 text-ion",
     saved: "border-porcelain/50 text-porcelain",
-    demo: "border-lime/60 text-lime",
-    fail: "border-crimson/60 text-crimson",
+    demo: "border-dashed border-porcelain/40 text-porcelain/75",
+    fail: "border-coral/60 text-coral",
   }[tone];
   return <span className={`rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] ${cls}`}>{children}</span>;
 }
@@ -59,15 +59,15 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
   if (list.kind === "docs" || list.kind === "skipped") {
     const docs = record.documents.filter((d) => (list.kind === "docs" ? d.included : !d.included));
     return (
-      <ul className="divide-y divide-line text-sm">
+      <ul className="divide-y divide-porcelain/10 text-sm">
         {docs.map((d) => (
           <li key={d.id} className="py-3">
-            <div className="break-all font-medium text-ink">{d.filename}</div>
-            <div className="text-xs text-mute">
+            <div className="break-all font-medium text-porcelain">{d.filename}</div>
+            <div className="text-xs text-porcelain/55">
               {d.pages ?? "?"} page{d.pages === 1 ? "" : "s"} · extraction {fmtMs(d.extractMs)} · uploaded {fmtTime(d.uploadedAt)}
               {d.charsSent !== undefined && ` · ${d.charsSent.toLocaleString()} characters sent to the AI${d.truncated ? " (truncated)" : ""}`}
             </div>
-            {d.reason && <div className="mt-1 text-xs text-warn">Skipped: {d.reason}</div>}
+            {d.reason && <div className="mt-1 text-xs text-amber">Skipped: {d.reason}</div>}
           </li>
         ))}
       </ul>
@@ -75,20 +75,20 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
   }
   if (list.kind === "checks") {
     return (
-      <ul className="divide-y divide-line text-sm">
+      <ul className="divide-y divide-porcelain/10 text-sm">
         {record.checks.map((c) => (
           <li key={c.id} className="py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-ink">
+              <span className="font-medium text-porcelain">
                 {c.check}: {c.field}
               </span>
-              <span className={`text-xs font-semibold ${["consistent", "passed"].includes(c.outcome) ? "text-teal-dark" : "text-bad"}`}>{c.outcome.replace("_", " ")}</span>
+              <span className={`text-xs font-semibold ${["consistent", "passed"].includes(c.outcome) ? "text-ion" : "text-coral"}`}>{c.outcome.replace("_", " ")}</span>
             </div>
-            <div className="text-xs text-mute">{c.detail}</div>
+            <div className="text-xs text-porcelain/55">{c.detail}</div>
             <ul className="mt-1 space-y-0.5 text-xs">
               {c.compared.map((v, i) => (
                 <li key={i} className="break-all">
-                  <span className="font-mono text-ink">{v.value}</span> <span className="text-mute">— {v.filename}, p.{v.page}</span>
+                  <span className="font-mono text-porcelain">{v.value}</span> <span className="text-porcelain/55">— {v.filename}, p.{v.page}</span>
                 </li>
               ))}
             </ul>
@@ -99,20 +99,20 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
   }
   if (list.kind === "attempts") {
     return (
-      <ul className="divide-y divide-line text-sm">
+      <ul className="divide-y divide-porcelain/10 text-sm">
         {record.ai.flatMap((s) =>
           s.attempts.map((a) => (
             <li key={`${s.stage}-${a.attempt}`} className="py-3">
-              <div className="font-medium text-ink">
+              <div className="font-medium text-porcelain">
                 {s.stage === "analysis" ? "AI request 1" : "AI request 2"} · network request {a.attempt}
               </div>
-              <div className="text-xs text-mute">
+              <div className="text-xs text-porcelain/55">
                 {fmtTime(a.startedAt)} · {fmtMs(a.durationMs)} · HTTP {a.httpStatus ?? "no response"} · {a.outcome.replace("_", " ")} · model {a.model ?? s.model}
               </div>
-              <div className="text-xs text-mute">
+              <div className="text-xs text-porcelain/55">
                 Tokens: {a.promptTokens === null && a.outputTokens === null ? "Token usage unavailable" : `${a.promptTokens ?? "?"} in / ${a.outputTokens ?? "?"} out`}
               </div>
-              {a.note && <div className="mt-1 text-xs text-warn">{a.note}</div>}
+              {a.note && <div className="mt-1 text-xs text-amber">{a.note}</div>}
             </li>
           )),
         )}
@@ -122,12 +122,12 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
   const filter = list.kind === "quotes" ? list.filter : "all";
   const quotes = record.quotes.filter((q) => filter === "all" || q.check === filter);
   return (
-    <ul className="divide-y divide-line text-sm">
+    <ul className="divide-y divide-porcelain/10 text-sm">
       {quotes.map((q, i) => (
         <li key={i} className="py-3">
           <button
             type="button"
-            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ion"
             onClick={() =>
               inspector.open({
                 kind: "quote",
@@ -144,16 +144,16 @@ function RecordList({ list, record }: { list: ListKind; record: RunRecord }) {
               })
             }
           >
-            <div className="text-xs text-mute">
+            <div className="text-xs text-porcelain/55">
               {q.source === "analysis" ? "AI request 1" : "AI request 2"} · {q.context}
             </div>
-            <div className="break-words italic text-ink">“{q.quote}”</div>
+            <div className="break-words italic text-porcelain">“{q.quote}”</div>
             <div className="text-xs">
-              <span className="break-all text-mute">
+              <span className="break-all text-porcelain/55">
                 {q.proposedFilename} · proposed p.{q.proposedPage ?? "?"}
               </span>{" "}
               <span className={CHECK_LABEL[q.check].cls}>· {CHECK_LABEL[q.check].text}</span>
-              {q.check === "verified_other_page" && <span className="text-warn"> (actual p.{q.verifiedPage})</span>}
+              {q.check === "verified_other_page" && <span className="text-amber"> (actual p.{q.verifiedPage})</span>}
             </div>
           </button>
         </li>
@@ -186,7 +186,7 @@ function Timeline({ view, record }: { view: RunView; record: RunRecord | null })
                   {(s.status === "completed" || s.status === "failed") && ` · ${fmtMs(s.durationMs)}`}
                 </span>
               </div>
-              {s.note && <div className={`text-xs ${s.status === "failed" ? "text-crimson" : "text-porcelain/55"}`}>{s.note}</div>}
+              {s.note && <div className={`text-xs ${s.status === "failed" ? "text-coral" : "text-porcelain/55"}`}>{s.note}</div>}
               {ai.length > 0 && (
                 <ul className="mt-1 space-y-0.5 border-l border-porcelain/15 pl-3 font-mono text-[11px] text-porcelain/55">
                   {ai.map((e) => (
@@ -231,7 +231,7 @@ function Metrics({ record, open }: { record: RunRecord; open: (l: ListKind) => v
         <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-porcelain/45">Documents</div>
         <div className="mt-1 grid grid-cols-2 gap-1">
           <Count n={included} label="processed" onOpen={() => open({ title: "Documents processed", kind: "docs" })} />
-          <Count n={record.documents.length - included} label="skipped" tone="text-lime" onOpen={() => open({ title: "Documents skipped", kind: "skipped" })} />
+          <Count n={record.documents.length - included} label="skipped" tone="text-amber" onOpen={() => open({ title: "Documents skipped", kind: "skipped" })} />
         </div>
       </div>
       <div>
@@ -252,7 +252,7 @@ function Metrics({ record, open }: { record: RunRecord; open: (l: ListKind) => v
                 : `${tokIn.reduce((a, b) => a + b, 0).toLocaleString()} input / ${tokOut.reduce((a, b) => a + b, 0).toLocaleString()} output tokens (reported by the Gemini API)`}
             </p>
             {record.ai.flatMap((s) => s.fallback ?? []).map((f, i) => (
-              <p key={i} className="px-2 text-xs text-lime">
+              <p key={i} className="px-2 text-xs text-amber">
                 Fallback: {f.reason}, so {f.to} was used instead of {f.from}.
               </p>
             ))}
@@ -264,9 +264,9 @@ function Metrics({ record, open }: { record: RunRecord; open: (l: ListKind) => v
         <div className="mt-1 grid grid-cols-3 gap-1 sm:grid-cols-5">
           <Count n={record.quotes.length} label="proposed" onOpen={() => open({ title: "All proposed quotations", kind: "quotes", filter: "all" })} />
           <Count n={q("verified")} label="verified" tone="text-ion" onOpen={() => open({ title: "Verified on the cited page", kind: "quotes", filter: "verified" })} />
-          <Count n={q("verified_other_page")} label="other page" tone="text-lime" onOpen={() => open({ title: "Found on another page", kind: "quotes", filter: "verified_other_page" })} />
-          <Count n={q("not_found")} label="not found" tone="text-crimson" onOpen={() => open({ title: "Not found in extracted text", kind: "quotes", filter: "not_found" })} />
-          <Count n={q("unknown_file")} label="unknown file" tone="text-crimson" onOpen={() => open({ title: "Unknown file", kind: "quotes", filter: "unknown_file" })} />
+          <Count n={q("verified_other_page")} label="other page" tone="text-amber" onOpen={() => open({ title: "Found on another page", kind: "quotes", filter: "verified_other_page" })} />
+          <Count n={q("not_found")} label="not found" tone="text-coral" onOpen={() => open({ title: "Not found in extracted text", kind: "quotes", filter: "not_found" })} />
+          <Count n={q("unknown_file")} label="unknown file" tone="text-coral" onOpen={() => open({ title: "Unknown file", kind: "quotes", filter: "unknown_file" })} />
         </div>
       </div>
       {record.validation && (
@@ -290,7 +290,7 @@ function Metrics({ record, open }: { record: RunRecord; open: (l: ListKind) => v
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-porcelain/45">Deterministic checks</div>
           <div className="mt-1 grid grid-cols-2 gap-1">
             <Count n={record.checks.length} label="executed" onOpen={() => open({ title: "Deterministic checks executed", kind: "checks" })} />
-            <Count n={flagged} label="flagged" tone="text-crimson" />
+            <Count n={flagged} label="flagged" tone="text-coral" />
           </div>
         </div>
         <div>
@@ -352,7 +352,7 @@ export function EngineRoom() {
     report.analysis && report.mapping && report.mapping.source === "gemini" && report.mapping.createdAt < report.analysis.createdAt ? report.mapping.createdAt : null;
 
   return (
-    <section id="engine-room" aria-labelledby="engine-room-title" className="panel scroll-mt-24 rounded-2xl p-5 sm:p-6">
+    <section id="engine-room" aria-labelledby="engine-room-title" className="surface scroll-mt-24 rounded-2xl p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.24em] text-ion">Engine Room</div>
@@ -407,24 +407,24 @@ export function EngineRoom() {
                 : `Showing the run recorded on ${fmtTime(record.startedAt)}. Nothing was re-run.`}
             </p>
           )}
-          {mine?.connection === "reconnecting" && <p className="mt-3 text-xs text-lime">Connection to the live stream dropped — reading the server&apos;s saved progress instead.</p>}
+          {mine?.connection === "reconnecting" && <p className="mt-3 text-xs text-amber">Connection to the live stream dropped — reading the server&apos;s saved progress instead.</p>}
           {mine?.error && (
-            <p role="alert" className="mt-3 rounded-lg border border-crimson/40 bg-crimson/10 px-3 py-2 text-sm text-porcelain">
+            <p role="alert" className="mt-3 rounded-lg border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-porcelain">
               {mine.error}
             </p>
           )}
           {stale && (
-            <p role="status" className="mt-3 rounded-lg border border-lime/40 bg-lime/5 px-3 py-2 text-sm text-porcelain/85">
+            <p role="status" className="mt-3 rounded-lg border border-amber/40 bg-amber/5 px-3 py-2 text-sm text-porcelain/85">
               This run failed, so it did not replace anything. The results shown on this page are from an earlier run ({fmtTime(stale)}).
             </p>
           )}
           {view.status === "failed" && !stale && view.steps.ai_analysis.status === "completed" && (
-            <p role="status" className="mt-3 rounded-lg border border-lime/40 bg-lime/5 px-3 py-2 text-sm text-porcelain/85">
+            <p role="status" className="mt-3 rounded-lg border border-amber/40 bg-amber/5 px-3 py-2 text-sm text-porcelain/85">
               Partial result: the analysis from this run was saved; the step that failed did not produce results.
             </p>
           )}
           {mappingOlder && !streaming && (
-            <p className="mt-3 text-xs text-lime">The requirement matches in the report are from an earlier run ({fmtTime(mappingOlder)}) than the current analysis.</p>
+            <p className="mt-3 text-xs text-amber">The requirement matches in the report are from an earlier run ({fmtTime(mappingOlder)}) than the current analysis.</p>
           )}
 
           <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_1.1fr] [&>*]:min-w-0">

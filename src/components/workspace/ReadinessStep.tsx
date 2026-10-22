@@ -5,14 +5,16 @@ import { validationCsv } from "@/lib/csv";
 import { downloadCsv } from "@/lib/download";
 import { inspector } from "@/lib/inspector-store";
 import { VALIDATION_LABEL, VALIDATION_MEANING, VALIDATION_STATUS, type RequirementResult, type ValidationStatus } from "@/lib/regulatory/types";
+import { fingerprint, type Review } from "@/lib/review";
+import { reviewActions, useReviews } from "@/lib/review-store";
 import { useGapReport } from "@/lib/use-report";
 import { useValidation } from "@/lib/use-validation";
 import { CHECK_LABEL } from "../EvidenceInspector";
 
 const TONE: Record<ValidationStatus, string> = {
-  conflict_detected: "border-crimson/60 text-crimson",
-  potential_gap: "border-lime/60 text-lime",
-  needs_human_review: "border-amber-300/50 text-amber-200",
+  conflict_detected: "border-coral/60 text-coral",
+  potential_gap: "border-amber/60 text-amber",
+  needs_human_review: "border-amber/30 text-amber/85",
   evidence_found: "border-ion/60 text-ion",
   validated_against_source: "border-ion/60 text-ion",
   not_applicable: "border-porcelain/25 text-porcelain/50",
@@ -20,9 +22,29 @@ const TONE: Record<ValidationStatus, string> = {
 /** AI-proposed quotations and code comparisons first; plain keyword locations last. */
 const EVIDENCE_ORDER = { ai_quote: 0, deterministic: 1, keyword: 2 } as const;
 const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-const checkTone = (c: keyof typeof CHECK_LABEL) => (c === "verified" ? "text-ion" : c === "verified_other_page" ? "text-lime" : "text-crimson");
+const checkTone = (c: keyof typeof CHECK_LABEL) => (c === "verified" ? "text-ion" : c === "verified_other_page" ? "text-amber" : "text-coral");
 
-function Requirement({ r, open, onToggle, workspaceId, synthetic }: { r: RequirementResult; open: boolean; onToggle: () => void; workspaceId: string; synthetic: boolean }) {
+/** What a reviewer saw: if the status or evidence changes, the review is flagged as out of date. */
+const reqBasis = (r: RequirementResult) => fingerprint([r.status, ...r.evidence.map((e) => `${e.filename}:${e.page}:${e.text}`)]);
+
+function Requirement({
+  r,
+  open,
+  onToggle,
+  workspaceId,
+  synthetic,
+  review,
+}: {
+  r: RequirementResult;
+  open: boolean;
+  onToggle: () => void;
+  workspaceId: string;
+  synthetic: boolean;
+  review: Review | undefined;
+}) {
+  const key = `req:${r.requirementId}`;
+  const reviewed = Boolean(review?.reviewed);
+  const stale = reviewed && review!.basis !== reqBasis(r);
   const id = `req-${r.requirementId.replace(/[^a-z0-9]/gi, "")}`;
   const ref = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -47,7 +69,10 @@ function Requirement({ r, open, onToggle, workspaceId, synthetic }: { r: Require
             {r.checklist && ` · MD-7 checklist ${r.checklist.item}`}
           </span>
         </span>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${TONE[r.status]}`}>{VALIDATION_LABEL[r.status]}</span>
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${TONE[r.status]}`}>{VALIDATION_LABEL[r.status]}</span>
+          {reviewed && <span className={`text-[10px] ${stale ? "text-amber" : "text-ion"}`}>{stale ? "Reviewed · evidence changed" : "✓ Reviewed"}</span>}
+        </span>
       </button>
       {open && (
         <div id={id} className="anim-fade-up space-y-3 px-4 pb-4 pl-10 text-sm">
@@ -83,7 +108,7 @@ function Requirement({ r, open, onToggle, workspaceId, synthetic }: { r: Require
             <ul className="space-y-0.5 text-xs">
               {r.deterministic.map((d, i) => (
                 <li key={i}>
-                  <span className={d.outcome === "failed" ? "text-crimson" : d.outcome === "passed" ? "text-ion" : "text-porcelain/45"}>{d.outcome.replace("_", " ")}</span>{" "}
+                  <span className={d.outcome === "failed" ? "text-coral" : d.outcome === "passed" ? "text-ion" : "text-porcelain/45"}>{d.outcome.replace("_", " ")}</span>{" "}
                   <span className="text-porcelain/70">· {d.check}</span>
                 </li>
               ))}
@@ -131,28 +156,41 @@ function Requirement({ r, open, onToggle, workspaceId, synthetic }: { r: Require
           <p>
             <span className="text-porcelain/45">Next: </span>
             {r.nextAction}
-            {r.humanReviewRequired && <span className="ml-2 text-[11px] text-crimson">Human review required</span>}
+            {r.humanReviewRequired && <span className="ml-2 text-[11px] text-amber">Human review required</span>}
           </p>
-          <button
-            type="button"
-            onClick={() => inspector.open({ kind: "requirement", result: r, workspaceId, synthetic })}
-            className="text-xs text-ion underline-offset-4 hover:underline"
-          >
-            Open full evidence panel →
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {r.status !== "not_applicable" && (
+              <button
+                type="button"
+                aria-pressed={reviewed}
+                onClick={() => reviewActions.update(workspaceId, key, reqBasis(r), { reviewed: !reviewed })}
+                className={`press rounded-full px-3 py-1 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-ion ${reviewed ? "bg-ion text-obsidian" : "border border-porcelain/30 hover:border-ion"}`}
+              >
+                {reviewed ? "✓ Reviewed" : "Mark as reviewed"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => inspector.open({ kind: "requirement", result: r, workspaceId, synthetic })}
+              className="text-xs text-ion underline-offset-4 hover:underline"
+            >
+              Open full evidence panel →
+            </button>
+          </div>
         </div>
       )}
     </li>
   );
 }
 
-export function ReadinessStep({ onBack }: { onBack: () => void }) {
+export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void; focusReq?: string | null }) {
   const { state, report } = useGapReport();
   const { report: v, error } = useValidation(state.workspaceId);
+  const reviews = useReviews(state.workspaceId);
   const [filter, setFilter] = useState<ValidationStatus | "all">("all");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(focusReq);
 
-  if (error) return <p role="alert" className="text-sm text-crimson">The validation report could not be loaded: {error}</p>;
+  if (error) return <p role="alert" className="text-sm text-coral">The validation report could not be loaded: {error}</p>;
   if (!v)
     return (
       <p className="text-sm text-porcelain/60" role="status">
@@ -171,12 +209,15 @@ export function ReadinessStep({ onBack }: { onBack: () => void }) {
           </h1>
           <p className="text-xs text-porcelain/50">
             {v.decision.status === "in_scope" ? v.decision.form : v.decision.label} · library v{v.pathway.libraryVersion} (checked {v.pathway.lastReviewed}) · prepared {fmt(v.generatedAt)}
-            {v.synthetic && <span className="ml-2 text-lime">SYNTHETIC DEMO DATA</span>}
+            {v.synthetic && <span className="ml-2 text-porcelain/75">SYNTHETIC DEMO DATA</span>}
           </p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={onBack} className="press rounded-full border hairline px-3 py-1.5 text-xs hover:border-porcelain/40">
             ← Findings
+          </button>
+          <button type="button" onClick={() => window.print()} className="press rounded-full border hairline px-3 py-1.5 text-xs hover:border-porcelain/40">
+            Print / PDF
           </button>
           <button
             type="button"
@@ -213,7 +254,7 @@ export function ReadinessStep({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
-        <ul className="panel rounded-2xl lg:max-h-[64vh] lg:overflow-auto" aria-label="CDSCO requirement checks">
+        <ul className="surface rounded-2xl lg:max-h-[64vh] lg:overflow-auto" aria-label="CDSCO requirement checks">
           {shown.map((r) => (
             <Requirement
               key={r.requirementId}
@@ -222,12 +263,13 @@ export function ReadinessStep({ onBack }: { onBack: () => void }) {
               onToggle={() => setOpenId(openId === r.requirementId ? null : r.requirementId)}
               workspaceId={v.workspaceId}
               synthetic={v.synthetic}
+              review={reviews[`req:${r.requirementId}`]}
             />
           ))}
         </ul>
 
         <aside className="space-y-4">
-          <section className="panel rounded-2xl p-4">
+          <section className="surface rounded-2xl p-4">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">Next actions</h2>
             {v.actions.length === 0 ? (
               <p className="mt-2 text-sm text-porcelain/55">No open actions from the checked items.</p>
@@ -247,7 +289,7 @@ export function ReadinessStep({ onBack }: { onBack: () => void }) {
               </ol>
             )}
           </section>
-          <section className="panel rounded-2xl p-4">
+          <section className="surface rounded-2xl p-4">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">Unresolved</h2>
             <ul className="mt-2 max-h-[22vh] space-y-1.5 overflow-auto pr-1 text-xs">
               {v.unresolved.map((u) => (

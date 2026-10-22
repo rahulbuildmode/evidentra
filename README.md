@@ -128,6 +128,8 @@ For persistent production use you still need:
 
 ## Gemini on Vercel
 
+`vercel.json` runs the server functions in `bom1` (Mumbai), the same region as the private Blob store, so storage reads stay in-region.
+
 `GET /api/health` shows whether `GEMINI_API_KEY` is set for the current deployment environment (never the key); `GET /api/health?probe=1` also checks that the key is accepted (model metadata, no generation, so it does not test generation quota).
 
 The key is currently set for **Production only**. Preview deployments therefore report "not set". To fix:

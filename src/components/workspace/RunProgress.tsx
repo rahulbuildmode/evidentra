@@ -20,7 +20,7 @@ const ICON = {
   pending: { i: "", c: "border-porcelain/20 text-porcelain/30" },
   running: { i: "•", c: "anim-pulse border-ion text-ion" },
   completed: { i: "✓", c: "border-ion bg-ion text-obsidian" },
-  failed: { i: "!", c: "border-crimson bg-crimson/20 text-crimson" },
+  failed: { i: "!", c: "border-coral bg-coral/20 text-coral" },
   skipped: { i: "–", c: "border-porcelain/25 text-porcelain/40" },
 } as const;
 
@@ -72,7 +72,7 @@ export function RunProgress({ workspaceId, onNext }: { workspaceId: string; onNe
               <span aria-hidden className={`flex h-4 w-4 items-center justify-center rounded-full border text-[9px] font-bold ${ICON[s.status].c}`}>
                 {ICON[s.status].i}
               </span>
-              <span className={`text-xs ${s.status === "pending" || s.status === "skipped" ? "text-porcelain/40" : s.status === "failed" ? "text-crimson" : "text-porcelain/85"}`}>
+              <span className={`text-xs ${s.status === "pending" || s.status === "skipped" ? "text-porcelain/40" : s.status === "failed" ? "text-coral" : "text-porcelain/85"}`}>
                 {SHORT[k]}
               </span>
               <span className="sr-only">{s.status}</span>
@@ -80,9 +80,9 @@ export function RunProgress({ workspaceId, onNext }: { workspaceId: string; onNe
           );
         })}
       </ol>
-      {note && <p className={`mt-2 text-xs ${failed ? "text-crimson" : "text-porcelain/60"}`}>{note}</p>}
-      {mine?.error && !failed && <p className="mt-2 text-xs text-crimson">{mine.error}</p>}
-      {mine?.connection === "reconnecting" && <p className="mt-2 text-xs text-lime">Stream dropped — reading the server&apos;s saved progress.</p>}
+      {note && <p className={`mt-2 text-xs ${failed ? "text-coral" : "text-porcelain/60"}`}>{note}</p>}
+      {mine?.error && !failed && <p className="mt-2 text-xs text-coral">{mine.error}</p>}
+      {mine?.connection === "reconnecting" && <p className="mt-2 text-xs text-amber">Stream dropped — reading the server&apos;s saved progress.</p>}
       {view.status === "completed" && kind === "live" && (
         <button type="button" onClick={onNext} className="press mt-3 rounded-full bg-ion px-4 py-1.5 text-xs font-semibold text-obsidian focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain">
           View findings →

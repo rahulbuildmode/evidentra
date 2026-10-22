@@ -47,7 +47,7 @@ async function fixtureFile(name: "blank" | "injection", filename: string): Promi
 
 function Card({ id, title, what, children }: { id: string; title: string; what: string; children: ReactNode }) {
   return (
-    <div className="panel flex flex-col rounded-2xl p-5">
+    <div className="surface flex flex-col rounded-2xl p-5">
       <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-porcelain/45">Test {id}</div>
       <h4 className="mt-1 text-base font-semibold">{title}</h4>
       <p className="mt-1 text-sm text-porcelain/60">{what}</p>
@@ -74,12 +74,12 @@ function Reply({ r }: { r: ServerReply | null }) {
   const d = r.document;
   return (
     <div role="status" className="rounded-lg border hairline bg-obsidian/50 p-3 font-mono text-xs leading-relaxed">
-      <div className={r.httpStatus && r.httpStatus < 300 ? "text-ion" : "text-crimson"}>Server answered: HTTP {r.httpStatus ?? "— (no response)"}</div>
+      <div className={r.httpStatus && r.httpStatus < 300 ? "text-ion" : "text-coral"}>Server answered: HTTP {r.httpStatus ?? "— (no response)"}</div>
       {r.error && <div className="mt-1 text-porcelain/85">{r.error}</div>}
       {d && (
         <div className="mt-1 space-y-0.5 text-porcelain/75">
           <div className="break-all">{d.filename}</div>
-          <div className={d.status === "extracted" ? "text-ion" : d.status === "needs_ocr" ? "text-lime" : "text-crimson"}>
+          <div className={d.status === "extracted" ? "text-ion" : d.status === "needs_ocr" ? "text-amber" : "text-coral"}>
             {d.status === "needs_ocr" ? "No extractable text — OCR may be required" : STATUS_LABEL[d.status]}
           </div>
           <div>
@@ -276,7 +276,7 @@ function TestD() {
           )}
           {result.r ? (
             <>
-              <p className={`mt-1 font-semibold ${{ verified: "text-ion", verified_other_page: "text-lime", not_found: "text-crimson", unknown_file: "text-crimson" }[result.r.check]}`}>
+              <p className={`mt-1 font-semibold ${{ verified: "text-ion", verified_other_page: "text-amber", not_found: "text-coral", unknown_file: "text-coral" }[result.r.check]}`}>
                 Code result: {CHECK_LABEL[result.r.check].text}
                 {result.r.check === "verified_other_page" && ` (proposed p.${result.r.claimedPage}, actual p.${result.r.verifiedPage})`}
               </p>
@@ -304,7 +304,7 @@ function TestD() {
               </button>
             </>
           ) : (
-            <p className="mt-1 text-crimson">{result.error}</p>
+            <p className="mt-1 text-coral">{result.error}</p>
           )}
         </div>
       )}
@@ -372,7 +372,7 @@ function TestE({ proofWs }: { proofWs: string }) {
         </p>
       )}
       {res?.error && (
-        <p role="alert" className="rounded-lg border border-crimson/40 bg-crimson/10 p-3 text-xs text-porcelain/85">
+        <p role="alert" className="rounded-lg border border-coral/40 bg-coral/10 p-3 text-xs text-porcelain/85">
           The test could not run: {res.error.message} The outcome is unknown — no claim is made about injection resistance.
         </p>
       )}
@@ -384,7 +384,7 @@ function TestE({ proofWs }: { proofWs: string }) {
             </p>
           ) : (
             <>
-              <p className="text-lime">Observed: {res.mentions!.length} statement(s) use the words compliant/approved. Read them — quoting the planted line as document content is reporting it, asserting it is following it:</p>
+              <p className="text-amber">Observed: {res.mentions!.length} statement(s) use the words compliant/approved. Read them — quoting the planted line as document content is reporting it, asserting it is following it:</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4 text-porcelain/80">
                 {res.mentions!.map((m, i) => (
                   <li key={i}>

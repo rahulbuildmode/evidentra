@@ -5,7 +5,7 @@ import { CDSCO_MFG_BCD } from "@/lib/requirements";
 import { useShared } from "@/lib/shared-fetch";
 import { useGapReport } from "@/lib/use-report";
 import { loadSyntheticDemo, startOwnDossier, useUploader } from "@/lib/use-uploader";
-import { MAX_UPLOADS_PER_WORKSPACE, type UploadedDocument } from "@/lib/uploads";
+import { MAX_UPLOADS_PER_WORKSPACE, type UploadedDocument, type UploadedDocumentMeta } from "@/lib/uploads";
 import { AnalyzeAction } from "../AnalyzeAction";
 import { DevicePathway } from "../experience/DevicePathway";
 import { EngineRoom } from "../experience/EngineRoom";
@@ -15,8 +15,8 @@ import { RunProgress } from "./RunProgress";
 
 const STATUS = {
   extracted: { label: "Text extracted", cls: "text-ion", dot: "bg-ion" },
-  needs_ocr: { label: "No extractable text — OCR may be required", cls: "text-lime", dot: "bg-lime" },
-  failed: { label: "Could not be read", cls: "text-crimson", dot: "bg-crimson" },
+  needs_ocr: { label: "No extractable text — OCR may be required", cls: "text-amber", dot: "bg-amber" },
+  failed: { label: "Could not be read", cls: "text-coral", dot: "bg-coral" },
 } as const;
 
 /** The real extracted text, page by page. */
@@ -27,22 +27,107 @@ function DocumentText({ workspaceId, id }: { workspaceId: string; id: string }) 
     if (!res.ok) throw new Error(j.error ?? "Could not load the text.");
     return j.document as UploadedDocument;
   });
-  if (e.error) return <p className="text-sm text-bad">{e.error}</p>;
-  if (!e.data) return <p className="text-sm text-mute">Loading text…</p>;
+  if (e.error) return <p className="text-sm text-coral">{e.error}</p>;
+  if (!e.data) return <p className="text-sm text-porcelain/55">Loading text…</p>;
   return (
     <div className="space-y-4">
-      <p className="text-xs text-mute">Raw text as extracted from the PDF. Layout, tables and images are not preserved.</p>
+      <p className="text-xs text-porcelain/55">Raw text as extracted from the PDF. Layout, tables and images are not preserved.</p>
       {e.data.pages.map((p) => (
         <section key={p.page}>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-teal-dark">Page {p.page}</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ion">Page {p.page}</h3>
           {p.text ? (
-            <pre className="whitespace-pre-wrap break-words rounded-lg bg-background p-3 font-mono text-xs leading-relaxed text-ink">{p.text}</pre>
+            <pre className="paper whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-relaxed">{p.text}</pre>
           ) : (
-            <p className="rounded-lg bg-warn-soft p-3 text-xs text-warn">No extractable text on this page — OCR may be required.</p>
+            <p className="rounded-lg bg-amber/10 p-3 text-xs text-amber">No extractable text on this page — OCR may be required.</p>
           )}
         </section>
       ))}
     </div>
+  );
+}
+
+const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+/** A document card: real extraction status; expands to the metadata the server recorded. */
+function DocCard({
+  d,
+  fresh,
+  open,
+  onToggle,
+  onView,
+  onRemove,
+}: {
+  d: UploadedDocumentMeta;
+  fresh: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onView: () => void;
+  onRemove: () => void;
+}) {
+  const st = STATUS[d.status];
+  return (
+    <li className={`surface-2 lift rounded-xl ${open ? "border-ion/40 sm:col-span-2" : "hover:border-porcelain/25"} ${fresh ? "anim-confirm" : ""}`}>
+      <div className="flex items-start gap-3 px-3 py-2.5">
+        <span aria-hidden className="relative mt-0.5 flex h-9 w-7 shrink-0 items-end justify-center rounded-[4px] border border-porcelain/20 bg-porcelain/[0.06] pb-1 font-mono text-[8px] text-porcelain/50">
+          PDF
+          <span className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-navy-2 ${st.dot}`} />
+        </span>
+        <button type="button" onClick={onToggle} aria-expanded={open} className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
+          <span className="block truncate text-sm" title={d.filename}>
+            {d.filename}
+          </span>
+          <span className={`block text-[11px] ${st.cls}`}>
+            {st.label}
+            {d.status === "extracted" && <span className="text-porcelain/45"> · {d.pageCount ?? "?"} p.</span>}
+          </span>
+        </button>
+        <button type="button" onClick={onRemove} aria-label={`Remove ${d.filename}`} className="press shrink-0 px-1 text-xs text-porcelain/35 hover:text-coral">
+          ✕
+        </button>
+      </div>
+      {open && (
+        <div className="anim-fade-up border-t border-porcelain/10 px-3 py-2.5">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
+            <div>
+              <dt className="text-porcelain/40">Pages</dt>
+              <dd>{d.pageCount ?? "Not recorded"}</dd>
+            </div>
+            <div>
+              <dt className="text-porcelain/40">Characters</dt>
+              <dd>{d.charCount.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt className="text-porcelain/40">Size</dt>
+              <dd>{kb(d.sizeBytes)}</dd>
+            </div>
+            <div>
+              <dt className="text-porcelain/40">Extraction</dt>
+              <dd>{d.extractMs !== undefined ? `${d.extractMs} ms (server)` : "Not recorded"}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-porcelain/40">Uploaded</dt>
+              <dd>{new Date(d.uploadedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-porcelain/40">Source</dt>
+              <dd>{d.origin === "demo" ? "Synthetic demo file" : "Uploaded by you"}</dd>
+            </div>
+            {d.emptyPages.length > 0 && (
+              <div className="col-span-full text-amber">Pages without text: {d.emptyPages.join(", ")}</div>
+            )}
+            {d.error && <div className="col-span-full text-amber">{d.error}</div>}
+          </dl>
+          <button
+            type="button"
+            disabled={d.status === "failed"}
+            onClick={onView}
+            className="press mt-2 rounded-full border border-ion/40 px-3 py-1 text-[11px] text-ion hover:bg-ion/10 disabled:opacity-30"
+          >
+            View extracted text
+          </button>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -70,6 +155,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [viewing, setViewing] = useState<{ id: string; filename: string } | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const readable = uploads.filter((d) => d.status === "extracted").length;
@@ -80,7 +166,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
     input.current?.click();
   }
   async function tryDemo() {
-    setBusy("Loading the synthetic demo…");
+    setBusy("Loading sample dossier…");
     setError(null);
     try {
       await loadSyntheticDemo();
@@ -96,43 +182,50 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
       <h1 id="step-dossier" tabIndex={-1} className="sr-only">
         Step 1: Dossier
       </h1>
-      {/* Compact intro: what this is, and the two ways in. */}
-      <section className="flex flex-col gap-3 rounded-2xl border hairline bg-gradient-to-r from-ion/[0.07] via-transparent to-crimson/[0.06] px-5 py-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xl font-semibold tracking-tight sm:text-2xl">Know what your dossier is missing.</p>
-          <p className="mt-0.5 text-sm text-porcelain/60">Trace evidence. Find inconsistencies. Assess applicable CDSCO requirements.</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-porcelain/40">
-            <span className="text-ultra">AI proposes</span> → <span className="text-ion">code verifies</span> → <span className="text-lime">you decide</span>
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={analyseOwn}
-            className="press rounded-full bg-ion px-5 py-2 text-sm font-semibold text-obsidian shadow-[0_0_24px_rgba(57,231,255,0.3)] hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain"
-          >
-            Analyse a dossier
-          </button>
-          <button
-            type="button"
-            onClick={tryDemo}
-            disabled={Boolean(busy)}
-            className="press rounded-full border border-porcelain/30 px-5 py-2 text-sm text-porcelain hover:border-lime hover:text-lime focus:outline-none focus-visible:ring-2 focus-visible:ring-lime disabled:opacity-50"
-          >
-            {busy ?? "Try synthetic demo"}
-          </button>
+      {/* Compact intro: the promise, the principle, the two ways in. */}
+      <section className="surface relative overflow-hidden rounded-2xl px-5 py-4">
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-ion/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-2xl font-semibold tracking-tight sm:text-[1.7rem]">Know what your dossier is missing.</p>
+            <p className="mt-1 text-sm text-porcelain/60">Find inconsistencies. Trace evidence. Review applicable CDSCO requirements.</p>
+            <ol aria-label="How Evidentra works" className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <li className="rounded-full border border-ultra/40 bg-ultra/10 px-2.5 py-1 text-ultra">AI proposes</li>
+              <li aria-hidden className="text-porcelain/30">→</li>
+              <li className="rounded-full border border-ion/40 bg-ion/10 px-2.5 py-1 text-ion">Software verifies</li>
+              <li aria-hidden className="text-porcelain/30">→</li>
+              <li className="rounded-full border border-amber/40 bg-amber/10 px-2.5 py-1 text-amber">Humans decide</li>
+            </ol>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={analyseOwn}
+              className="press rounded-full bg-ion px-5 py-2.5 text-sm font-semibold text-obsidian hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain"
+            >
+              Analyse a dossier
+            </button>
+            <button
+              type="button"
+              onClick={tryDemo}
+              disabled={Boolean(busy)}
+              className="press rounded-full border border-porcelain/25 bg-navy-3/60 px-5 py-2.5 text-sm text-porcelain hover:border-ion/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion disabled:opacity-60"
+            >
+              {busy ?? "Explore sample dossier"}
+            </button>
+          </div>
         </div>
       </section>
-      {error && <p role="alert" className="text-sm text-crimson">{error}</p>}
+      {error && <p role="alert" className="text-sm text-coral">{error}</p>}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] [&>*]:min-w-0">
         {/* Documents */}
-        <section aria-labelledby="docs-title" className="panel flex flex-col rounded-2xl p-4">
+        <section aria-labelledby="docs-title" className="surface flex flex-col rounded-2xl p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 id="docs-title" className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
               Documents <span className="text-porcelain/35">{uploads.length}/{MAX_UPLOADS_PER_WORKSPACE}</span>
             </h2>
-            {state.isDemo && <span className="rounded-full border border-lime/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-lime">Synthetic demo data</span>}
+            {state.isDemo && <span className="rounded-full border border-dashed border-porcelain/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-porcelain/75">Synthetic demo data</span>}
           </div>
           <input
             ref={input}
@@ -172,7 +265,7 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
             </span>
           </button>
           {u.errors.length > 0 && (
-            <div role="alert" className="mt-3 rounded-lg border border-crimson/40 bg-crimson/10 px-3 py-2 text-xs">
+            <div role="alert" className="mt-3 rounded-lg border border-coral/40 bg-coral/10 px-3 py-2 text-xs">
               <ul className="space-y-0.5 text-porcelain/85">
                 {u.errors.map((e, i) => (
                   <li key={i}>{e}</li>
@@ -183,48 +276,27 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
               </button>
             </div>
           )}
-          <ul className="mt-3 min-h-12 flex-1 divide-y divide-porcelain/10 pr-1 lg:max-h-[34vh] lg:overflow-auto" aria-label="Documents in this dossier">
+          <ul className="mt-3 grid min-h-12 flex-1 auto-rows-min grid-cols-1 gap-2 pr-1 sm:grid-cols-2 lg:max-h-[38vh] lg:overflow-auto" aria-label="Documents in this dossier">
             {loading && uploads.length === 0 && <li className="py-2 text-sm text-porcelain/50">Loading documents…</li>}
-            {!loading && uploads.length === 0 && u.pending.length === 0 && <li className="py-2 text-sm text-porcelain/45">No documents yet.</li>}
-            {uploads.map((d) => {
-              const st = STATUS[d.status];
-              return (
-                <li key={d.id} className={`flex items-center gap-3 py-2 ${u.justAdded.includes(d.id) ? "anim-confirm" : ""}`}>
-                  <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${st.dot}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm" title={d.filename}>
-                      {d.filename}
-                    </div>
-                    <div className={`text-[11px] ${st.cls}`}>
-                      {st.label}
-                      {d.status === "extracted" && (
-                        <span className="text-porcelain/45">
-                          {" "}
-                          · {d.pageCount} page{d.pageCount === 1 ? "" : "s"}
-                          {d.extractMs !== undefined && ` · ${d.extractMs} ms`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={d.status === "failed"}
-                    onClick={() => setViewing({ id: d.id, filename: d.filename })}
-                    className="press shrink-0 rounded-full border hairline px-2.5 py-0.5 text-[11px] hover:border-ion/60 disabled:opacity-30"
-                  >
-                    Text
-                  </button>
-                  <button type="button" onClick={() => u.remove(d.id, d.filename)} aria-label={`Remove ${d.filename}`} className="press shrink-0 px-1 text-xs text-porcelain/40 hover:text-crimson">
-                    ✕
-                  </button>
-                </li>
-              );
-            })}
+            {!loading && uploads.length === 0 && u.pending.length === 0 && (
+              <li className="col-span-full py-3 text-sm text-porcelain/45">No documents yet. Drop the PDFs of a dossier above, or explore the sample dossier.</li>
+            )}
+            {uploads.map((d) => (
+              <DocCard
+                key={d.id}
+                d={d}
+                fresh={u.justAdded.includes(d.id)}
+                open={expanded === d.id}
+                onToggle={() => setExpanded(expanded === d.id ? null : d.id)}
+                onView={() => setViewing({ id: d.id, filename: d.filename })}
+                onRemove={() => u.remove(d.id, d.filename)}
+              />
+            ))}
             {u.pending.map((name) => (
-              <li key={`p-${name}`} className="flex items-center gap-3 py-2 text-sm">
-                <span aria-hidden className="anim-pulse h-2 w-2 rounded-full bg-ion" />
-                <span className="min-w-0 flex-1 truncate">{name}</span>
-                <span className="text-[11px] text-ion">Extracting…</span>
+              <li key={`p-${name}`} className="surface-2 relative overflow-hidden rounded-xl px-3 py-2.5 text-sm">
+                <span aria-hidden className="anim-scan absolute inset-x-0 top-0 h-px bg-ion" />
+                <div className="truncate">{name}</div>
+                <div className="text-[11px] text-ion">Uploading and extracting text…</div>
               </li>
             ))}
           </ul>
@@ -233,12 +305,12 @@ export function DossierStep({ onNext }: { onNext: () => void }) {
         {/* Device, pathway, analyse */}
         <div className="flex flex-col gap-4">
           <DevicePathway />
-          <section aria-labelledby="analyse-title" className="panel rounded-2xl p-4">
+          <section aria-labelledby="analyse-title" className="surface rounded-2xl p-4">
             <h2 id="analyse-title" className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
               Analyse
             </h2>
             <AnalyzeAction workspaceId={ws} set={CDSCO_MFG_BCD} aiConfigured={results.aiConfigured} readableDocs={readable} hasResults={Boolean(results.analysis)} onDone={refresh} />
-            {results.error && <p className="mt-2 text-xs text-crimson">{results.error}</p>}
+            {results.error && <p className="mt-2 text-xs text-coral">{results.error}</p>}
             <div className="mt-3">
               <RunProgress workspaceId={ws} onNext={onNext} />
             </div>

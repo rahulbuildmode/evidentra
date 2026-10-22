@@ -178,20 +178,24 @@ export function Drawer({
   if (!open) return null;
   return (
     <div className="no-print fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : "Details"}>
-      <button type="button" aria-label="Close details" className="anim-backdrop absolute inset-0 bg-ink/25 backdrop-blur-[1px]" onClick={onClose} />
+      <button type="button" aria-label="Close details" className="anim-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]" onClick={onClose} />
       <div
         ref={ref}
         tabIndex={-1}
-        className="anim-drawer relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl focus:outline-none"
+        className="anim-drawer relative flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-porcelain/10 bg-navy text-porcelain shadow-2xl focus:outline-none"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-porcelain/10 bg-navy-2 px-6 py-4">
           <div className="min-w-0">
-            {eyebrow && <div className="mb-1 text-xs text-mute">{eyebrow}</div>}
-            <h2 className="text-lg font-semibold leading-snug text-ink">{title}</h2>
+            {eyebrow && <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ion">{eyebrow}</div>}
+            <h2 className="text-lg font-semibold leading-snug">{title}</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="press shrink-0 rounded-full border border-porcelain/20 px-3 py-1 text-xs text-porcelain/80 hover:border-porcelain/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion"
+          >
+            Close <span className="text-porcelain/40">Esc</span>
+          </button>
         </div>
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">{children}</div>
       </div>

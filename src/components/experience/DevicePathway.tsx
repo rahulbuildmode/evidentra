@@ -139,7 +139,7 @@ function Form({ initial, workspaceId, onDone }: { initial: Editable; workspaceId
         </label>
       </div>
       {error && (
-        <p role="alert" className="sm:col-span-2 text-sm text-crimson">
+        <p role="alert" className="sm:col-span-2 text-sm text-coral">
           {error}
         </p>
       )}
@@ -165,7 +165,7 @@ export function DevicePathway() {
   const { report } = useValidation(ws);
   const [editing, setEditing] = useState(false);
   const d = report?.decision;
-  const tone = d?.status === "in_scope" ? "border-ion/40" : d?.status === "out_of_scope" ? "border-crimson/50" : "border-lime/50";
+  const tone = d?.status === "in_scope" ? "border-ion/40" : d?.status === "out_of_scope" ? "border-coral/50" : "border-amber/50";
 
   const cls = !profile || profile.riskClass === "unknown" ? "Class not stated" : `Class ${profile.riskClass}${profile.riskClassConfirmed ? "" : " (unconfirmed)"}`;
   const activity = !profile || profile.activity === "unknown" ? "activity not stated" : profile.activity === "manufacture" ? "manufacture in India" : "import";
@@ -177,7 +177,7 @@ export function DevicePathway() {
           Device and pathway
         </h3>
         <div className="flex items-center gap-2">
-          {profile?.origin === "demo" && <span className="rounded-full border border-lime/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-lime">Synthetic</span>}
+          {profile?.origin === "demo" && <span className="rounded-full border border-dashed border-porcelain/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-porcelain/75">Synthetic</span>}
           {profile && !editing && (
             <button type="button" onClick={() => setEditing(true)} className="press rounded-full border border-ion/50 px-3 py-1 text-xs text-ion hover:bg-ion/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
               Edit
@@ -185,7 +185,7 @@ export function DevicePathway() {
           )}
         </div>
       </div>
-      {error && <p className="mt-2 text-sm text-crimson">{error}</p>}
+      {error && <p className="mt-2 text-sm text-coral">{error}</p>}
       {profile && !editing && (
         <div className="mt-2 space-y-2 text-sm">
           <p className="truncate font-medium" title={profile.deviceName}>
@@ -197,7 +197,7 @@ export function DevicePathway() {
           <div className={`rounded-lg border px-3 py-2 ${tone}`}>
             <div className="text-xs font-semibold">{d?.status === "in_scope" ? d.form : (d?.label ?? "…")}</div>
             {d?.reasons.slice(0, 1).map((r) => (
-              <p key={r} className="mt-0.5 text-[11px] text-lime">
+              <p key={r} className="mt-0.5 text-[11px] text-amber">
                 {r}
               </p>
             ))}

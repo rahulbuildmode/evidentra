@@ -66,7 +66,7 @@ export function AnalyzeAction({
       </div>
 
       {confirming && (
-        <div className="panel rounded-xl px-4 py-3 text-sm text-porcelain/85">
+        <div className="surface rounded-xl px-4 py-3 text-sm text-porcelain/85">
           This starts a new AI run and uses API quota. If it succeeds it replaces the current results; findings you marked as reviewed are kept.
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={run} className="press rounded-full bg-ion px-4 py-1.5 text-xs font-semibold text-obsidian">

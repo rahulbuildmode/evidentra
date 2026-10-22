@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { STEP_LABEL } from "@/lib/run";
+import { parseHash } from "@/lib/links";
 import { useRunSession } from "@/lib/run-client";
 import { useGapReport } from "@/lib/use-report";
 import { useValidation } from "@/lib/use-validation";
 import { DossierStep } from "./DossierStep";
+import { PrintReport } from "./PrintReport";
 import { FindingsStep } from "./FindingsStep";
 import { ReadinessStep } from "./ReadinessStep";
 
@@ -18,7 +20,7 @@ const STEPS: { id: StepId; n: string; label: string }[] = [
 const isStep = (s: string): s is StepId => STEPS.some((x) => x.id === s);
 
 /** The active step lives in the URL hash, so Back/Forward and reloads keep it. Run state is global and survives step changes. */
-function useStep(): [StepId, (s: StepId) => void] {
+function useStep(): [StepId, (s: StepId, params?: Record<string, string>) => void, URLSearchParams] {
   const subscribe = useCallback((cb: () => void) => {
     window.addEventListener("hashchange", cb);
     return () => window.removeEventListener("hashchange", cb);
@@ -28,11 +30,13 @@ function useStep(): [StepId, (s: StepId) => void] {
     () => window.location.hash.slice(1),
     () => "",
   );
-  const step: StepId = isStep(hash) ? hash : "dossier";
-  const go = useCallback((s: StepId) => {
-    if (window.location.hash.slice(1) !== s) window.location.hash = s;
+  const parsed = parseHash(hash);
+  const step: StepId = isStep(parsed.step) ? parsed.step : "dossier";
+  const go = useCallback((s: StepId, params?: Record<string, string>) => {
+    const next = params ? `${s}?${new URLSearchParams(params)}` : s;
+    if (window.location.hash.slice(1) !== next) window.location.hash = next;
   }, []);
-  return [step, go];
+  return [step, go, parsed.params];
 }
 
 function StatusArea() {
@@ -53,7 +57,7 @@ function StatusArea() {
       ) : results.aiConfigured ? (
         <span className="hidden truncate text-porcelain/45 md:inline">AI ready · {results.model}</span>
       ) : (
-        <span className="text-crimson">AI not configured</span>
+        <span className="text-coral">AI not configured</span>
       )}
     </div>
   );
@@ -61,7 +65,7 @@ function StatusArea() {
 
 /** Compact, application-first shell: brand, the three steps, status. One step on screen at a time. */
 export function Workspace() {
-  const [step, go] = useStep();
+  const [step, go, params] = useStep();
   const { state, report, uploads } = useGapReport();
   const { report: validation } = useValidation(state.workspaceId);
   const readable = uploads.uploads.filter((u) => u.status === "extracted").length;
@@ -77,11 +81,12 @@ export function Workspace() {
   }, [step]);
 
   return (
-    <div className="stage flex min-h-[100svh] flex-col">
-      <header className="print-hide sticky top-0 z-40 border-b hairline bg-obsidian/85 backdrop-blur">
+    <>
+    <div className="stage flex min-h-[100svh] flex-col print:hidden">
+      <header className="print-hide sticky top-0 z-40 border-b border-porcelain/10 bg-navy/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-6">
           <a href="#dossier" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ion">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-gradient-to-br from-ion to-crimson" />
+            <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-gradient-to-br from-ion to-coral" />
             <span className="hidden sm:inline">Evidentra</span>
           </a>
           <nav aria-label="Steps" className="flex min-w-0 flex-1 items-center justify-center gap-1">
@@ -114,7 +119,7 @@ export function Workspace() {
             })}
           </nav>
           {state.isDemo && (
-            <span className="hidden shrink-0 rounded-full border border-lime/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-lime lg:inline">
+            <span className="hidden shrink-0 rounded-full border border-amber/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-amber lg:inline">
               Synthetic demo data
             </span>
           )}
@@ -124,9 +129,13 @@ export function Workspace() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5">
         {step === "dossier" && <DossierStep onNext={() => go("findings")} />}
-        {step === "findings" && <FindingsStep onBack={() => go("dossier")} onNext={() => go("readiness")} />}
-        {step === "readiness" && <ReadinessStep onBack={() => go("findings")} />}
+        {step === "findings" && (
+          <FindingsStep onBack={() => go("dossier")} onNext={() => go("readiness")} onOpenRequirement={(id) => go("readiness", { req: id })} />
+        )}
+        {step === "readiness" && <ReadinessStep key={params.get("req") ?? ""} focusReq={params.get("req")} onBack={() => go("findings")} />}
       </main>
     </div>
+    <PrintReport />
+    </>
   );
 }
