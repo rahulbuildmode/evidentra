@@ -1,6 +1,6 @@
 # Evidentra
 
-AI-assisted pre-submission documentation review for Indian medical-device manufacturers. Upload a product's PDFs, and Evidentra extracts the text, maps it to requirement topics, checks the documents against each other, and produces a gap report for a **human** regulatory reviewer.
+Regulatory intelligence for medical-device teams. One journey, three features: **upload documents → find evidence and inconsistencies → generate a CDSCO readiness brief.**
 
 > **Not a compliance tool.** Evidentra does not give legal advice, does not certify compliance with the Medical Devices Rules, 2017, does not predict or guarantee CDSCO approval, and does not file anything. Every AI output is a suggestion until a person reviews it.
 
@@ -14,7 +14,7 @@ cp .env.example .env.local      # then paste your Gemini key after GEMINI_API_KE
 npm run dev
 ```
 
-Open <http://localhost:3000>. The app opens on a **fictional demo workspace** that loads automatically.
+Open <http://localhost:3000>. The app opens on your own empty dossier; **Try the synthetic sample** loads the fictional demo dossier.
 
 | Command | What it does |
 | --- | --- |
@@ -35,30 +35,24 @@ Open <http://localhost:3000>. The app opens on a **fictional demo workspace** th
 
 `.env.local` and `.data/` are git-ignored. `.env.example` contains variable names only. Without a key the app still runs; AI buttons are disabled with an explanation.
 
-## Demo script (about 5 minutes)
+## Demo script (about 3 minutes)
 
-1. **Submission Workspace → Start blank workspace.** Fill in device name, manufacturer, model number, class and pathway (each field stays "Unverified" until you tick it).
-2. **Documents → Upload PDFs.** Try `fixtures/tiny_text_test.pdf` (fictional; its two pages disagree on the model number) or the four PDFs in `fixtures/demo-dossier/`.
-3. **View text** to inspect the extracted text per PDF page. Scanned or damaged PDFs are marked "needs OCR" / "Extraction failed", never as successful.
-4. **Consistency Checks → Run AI analysis** (10–60 s). Every quotation is checked by code against the extracted text.
-5. **Evidence Matrix → Map evidence with AI.** Each requirement shows status, source file, page and quotation.
-6. Spot the **model-number mismatch** (exact code check + AI explanation) and any **missing** or **partial** evidence.
-7. **Review a finding:** mark reviewed, accept/reject, change status, add a note, or dismiss as a false positive with a reason.
-8. **Gap Report** — the full pre-submission report, built live from the data above.
-9. **Export CSV** — evidence matrix, consistency findings, or the prioritised action list.
+1. Open the site. The opening ("Complexity is the enemy. Evidence is the answer.") → **Analyse a dossier**.
+2. **01 Dossier Intelligence** — drop PDFs (or **Try the synthetic sample**, clearly labelled *SYNTHETIC DEMO DATA*). Each file shows a real processing state; **View text** shows the extracted text page by page.
+3. **Analyse dossier** — one button runs the real steps (list documents → Gemini reads and compares them → code checks values exactly → Gemini matches regulatory evidence). The inline scan shows only steps that are actually running, and stops with an honest error if a step fails.
+4. **Extracted evidence** — every passage is a verified quote with its page; field names and values are labelled as AI suggestions.
+5. **02 Anomaly Engine** — each inconsistency shows the two sides, the conflicting values highlighted inside the real quotes, documents and pages. **Mark as reviewed**.
+6. **03 CDSCO Readiness Brief** — key findings, unresolved issues, next actions and verified regulatory references, each labelled as confirmed in text, AI suggestion, demo data, reviewed by you or needing human review. **Print / save PDF** or **Download CSV**.
 
-For a no-upload demo, use **Reload demo** on the Workspace page: four fictional PDFs plus a hand-written, clearly labelled seed that demonstrates one missing item (biocompatibility), one partial match (risk controls "to be completed") and one model-number mismatch (AP-200A vs AP-2000A). Seed quotations are re-verified against the PDF text on every load.
+## The three features
 
-## What each page does
+| Feature | Where | What it does |
+| --- | --- | --- |
+| Dossier Intelligence | `/#dossier` | PDF upload and validation, real text extraction, page-by-page text viewer, the single **Analyse dossier** action, extracted evidence with verified quotes and pages |
+| Anomaly Engine | `/#anomalies` | Cross-document inconsistencies (exact code checks + AI semantic suggestions) with the conflicting values, quotations, documents and pages; mark as reviewed |
+| CDSCO Readiness Brief | `/#report` | One concise report: key findings, unresolved issues, next actions, verified MDR 2017 references (applicability marked unresolved); print/PDF and CSV |
 
-| Page | Purpose |
-| --- | --- |
-| Overview | Live counts and verification status |
-| Submission Workspace | Device details; per-field "verified by me" ticks; start blank / reload demo |
-| Documents | Upload up to 10 PDFs per workspace (≤ 4 MB each); validation; page-by-page text viewer |
-| Evidence Matrix | Requirement set selector; AI mapping; status, source, page, quotation, next action, human review; CSV |
-| Consistency Checks | Exact (code) comparisons + AI differences in meaning; dates and revisions; extracted facts; possible missing info; CSV |
-| Gap Report | Pre-submission documentation gap report with counts, applicability questions, discrepancies, review queue, prioritised actions and a citation index; three CSVs; print to PDF |
+Everything is one page (`src/app/page.tsx`). The old routes (`/workspace`, `/documents`, `/evidence-matrix`, `/consistency-checks`, `/readiness-report`) redirect to the matching section.
 
 ## How results are kept honest
 
@@ -77,7 +71,7 @@ See **[REGULATORY_SOURCES.md](REGULATORY_SOURCES.md)**.
 
 ## Human review
 
-Reviewers can mark reviewed, accept/reject AI suggestions, change status, add notes and dismiss false positives (reason required). Reviews are keyed by *what* an item is (not by AI run), so they survive re-running the AI; if the evidence changes afterwards the item shows **Changed since review**.
+In the Anomaly Engine a reviewer can **mark a finding as reviewed**. Reviews are saved in the browser per dossier and keyed by what the finding is (not by AI run), so they survive re-running the analysis; if the evidence changes afterwards the finding says so. Reviews are not shared between browsers or users yet.
 
 ## CSV exports
 
@@ -128,25 +122,22 @@ gh repo create <your-account>/evidentra --private --source . --push
 
 - No OCR: scanned PDFs are flagged, not read.
 - Reviews are per browser; no reviewer identity or shared review state.
+- Device class and pathway are not entered in the app, so the applicability of regulatory references is always shown as unresolved.
 - Official requirement set covers 10 selected items for one scenario; amendments after Oct 2022 and the online portal checklist were not reviewed.
 - Page numbers are PDF page positions, not printed page labels; text extraction can scramble tables.
 - One AI run at a time per workspace per server process; Gemini can return 503 "high demand" (retried twice).
-- Print layout of the Gap Report has not been checked in detail.
+- The print layout of the readiness brief has not been checked in detail.
 
 ## Project layout
 
 ```
-src/app/                      pages and API routes (api/documents, api/analyze, api/requirements/map, api/demo/load, api/health)
-src/components/               AppShell, ReviewPanel, evidence/citation views, AI tables
-src/lib/requirements.ts       requirement sets + applicability check
-src/lib/analysis.ts           Zod schema for AI analysis output
-src/lib/mapping.ts            evidence statuses and the code rules that cap them
-src/lib/checks.ts             deterministic consistency comparisons
-src/lib/report.ts             gap report builder (counts, questions, prioritised actions)
-src/lib/review.ts, review-store.ts   review model (stable keys) and browser storage
-src/lib/csv.ts                safe CSV writer and the three exports
-src/lib/server/               PDF extraction, storage, Gemini calls, quote verifier, demo loader
-fixtures/                     fictional test PDFs (demo dossier, mismatch test, blank scan)
-tests/                        Vitest unit tests
-docs/research/                secondary research report and market model
+src/app/page.tsx                     the whole experience (opening → 3 chapters → final call to action)
+src/components/experience/           Signal (opening), Dossier, Anomalies, Brief, FinalCta, TopNav, Molecule, Reveal
+src/components/AnalyzeAction.tsx     the single "Analyse dossier" action
+src/components/IntelligenceScan.tsx  inline scan showing only real processing steps
+src/app/api/                         documents, analyze, requirements/map, demo/load, health
+src/lib/                             report builder, deterministic checks, CSV, stores
+src/lib/server/                      PDF extraction, storage, Gemini calls, quote verification, demo loader
+fixtures/                            fictional test PDFs (synthetic demo dossier, mismatch test, blank scan)
+tests/                               Vitest unit tests
 ```

@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 /**
- * Tiny shared cache for client fetches, so the shell (workflow steps) and the page read the
+ * Tiny shared cache for client fetches, so every chapter of the page reads the
  * same data with one request. Entries are immutable snapshots; refresh() re-fetches for everyone.
  */
 interface Entry<T> {
@@ -23,18 +23,25 @@ function set(key: string, e: Entry<unknown>) {
   listeners.get(key)?.forEach((l) => l());
 }
 
-function load(key: string) {
+const inflight = new Map<string, Promise<void>>();
+
+function load(key: string): Promise<void> {
   const fetcher = fetchers.get(key);
   const cur = cache.get(key);
-  if (!fetcher || cur?.inflight) return;
+  if (!fetcher) return Promise.resolve();
+  if (cur?.inflight) return inflight.get(key) ?? Promise.resolve();
   set(key, { ...cur, loading: cur?.data === undefined, inflight: true });
-  fetcher()
+  const p = fetcher()
     .then((data) => set(key, { data, loading: false }))
-    .catch((e: Error) => set(key, { data: cur?.data, error: e.message || "Request failed.", loading: false }));
+    .catch((e: Error) => set(key, { data: cur?.data, error: e.message || "Request failed.", loading: false }))
+    .finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
 }
 
-export function refreshShared(prefix: string) {
-  for (const key of cache.keys()) if (key.startsWith(prefix)) load(key);
+/** Re-fetch every cached entry whose key starts with `prefix`; resolves when all have loaded. */
+export function refreshShared(prefix: string): Promise<void> {
+  return Promise.all([...cache.keys()].filter((k) => k.startsWith(prefix)).map(load)).then(() => undefined);
 }
 
 export function useShared<T>(key: string, fetcher: () => Promise<T>) {

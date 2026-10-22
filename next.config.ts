@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
     "/api/requirements/map": ["./fixtures/demo-dossier/*.pdf"],
   },
   partialPrefetching: true,
+  // The six old pages are now chapters of one experience; keep their URLs working.
+  async redirects() {
+    return [
+      { source: "/workspace", destination: "/#dossier", permanent: false },
+      { source: "/documents", destination: "/#dossier", permanent: false },
+      { source: "/evidence-matrix", destination: "/#report", permanent: false },
+      { source: "/consistency-checks", destination: "/#anomalies", permanent: false },
+      { source: "/readiness-report", destination: "/#report", permanent: false },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

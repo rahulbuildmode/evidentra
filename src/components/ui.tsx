@@ -87,7 +87,7 @@ export function Card({
 }
 
 const BTN =
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50";
+  "press inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Button({
   variant = "secondary",
@@ -178,11 +178,11 @@ export function Drawer({
   if (!open) return null;
   return (
     <div className="no-print fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : "Details"}>
-      <button type="button" aria-label="Close details" className="absolute inset-0 bg-ink/20" onClick={onClose} />
+      <button type="button" aria-label="Close details" className="anim-backdrop absolute inset-0 bg-ink/25 backdrop-blur-[1px]" onClick={onClose} />
       <div
         ref={ref}
         tabIndex={-1}
-        className="relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl focus:outline-none"
+        className="anim-drawer relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl focus:outline-none"
       >
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">

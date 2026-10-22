@@ -17,7 +17,16 @@ function read(): AppState {
     return cache?.state ?? DEMO_STATE;
   }
   if (cache && cache.raw === raw) return cache.state;
-  let state = DEMO_STATE;
+  // First visit: the user's own empty dossier (the synthetic sample is opt-in).
+  let state: AppState = { ...BLANK_STATE, workspaceId: `ws-${crypto.randomUUID()}` };
+  if (!raw) {
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(state));
+      raw = window.localStorage.getItem(KEY);
+    } catch {
+      /* storage blocked: keep this workspace in memory */
+    }
+  }
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as AppState;
@@ -56,7 +65,7 @@ function subscribe(cb: () => void) {
 }
 
 export function useAppState(): AppState {
-  return useSyncExternalStore(subscribe, read, () => DEMO_STATE);
+  return useSyncExternalStore(subscribe, read, () => BLANK_STATE);
 }
 
 export const actions = {

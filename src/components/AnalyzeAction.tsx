@@ -2,17 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { RequirementSet } from "@/lib/requirements";
-import { Button, Notice } from "./ui";
+import { refreshShared } from "@/lib/shared-fetch";
+import { useGapReport } from "@/lib/use-report";
+import { IntelligenceScan, type ScanStatus, type ScanStep } from "./IntelligenceScan";
 
-type StepKey = "analysis" | "mapping";
-type StepState = { status: "idle" | "running" | "done" | "failed"; error?: string };
+type AiStep = "analysis" | "mapping";
 
-const STEP_LABEL: Record<StepKey, string> = {
-  analysis: "Read documents and check consistency",
-  mapping: "Match evidence to requirements",
-};
-
-async function runStep(step: StepKey, workspaceId: string, setId: string) {
+async function postStep(step: AiStep, workspaceId: string, setId: string) {
   const res = await fetch(step === "analysis" ? "/api/analyze" : "/api/requirements/map", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -22,10 +18,22 @@ async function runStep(step: StepKey, workspaceId: string, setId: string) {
   if (!res.ok) throw new Error(j.error ?? `The request failed (HTTP ${res.status}).`);
 }
 
+/** Real preparation step: list the workspace's documents and count the readable ones. */
+async function prepare(workspaceId: string): Promise<number> {
+  const res = await fetch(`/api/documents?workspaceId=${encodeURIComponent(workspaceId)}`);
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error ?? "Could not list the documents.");
+  const readable = (j.documents as { status: string }[]).filter((d) => d.status === "extracted").length;
+  if (readable === 0) throw new Error("No readable documents to analyze. Upload a text-based PDF first.");
+  return readable;
+}
+
+const idle = (): Record<ScanStep, ScanStatus> => ({ prepare: "idle", analysis: "idle", checks: "idle", mapping: "idle" });
+
 /**
- * One primary AI action. "Analyze documents" runs both AI steps in order (two Gemini requests):
- * reading facts/consistency, then matching evidence to the selected requirement set.
- * Re-running asks for confirmation; failures show which step failed and allow a retry of that step.
+ * The single AI action. Runs the real steps in order and shows them in the Intelligence Scan:
+ * prepare (list documents) → analysis (AI request) → checks (code comparison of the new facts)
+ * → mapping (AI request). Re-running asks for confirmation. Failures stop the run and are shown.
  */
 export function AnalyzeAction({
   workspaceId,
@@ -43,110 +51,119 @@ export function AnalyzeAction({
   readableDocs: number;
   hasResults: boolean;
   onDone: () => void;
-  steps?: StepKey[];
+  steps?: AiStep[];
   label?: string;
 }) {
-  const [state, setState] = useState<Record<StepKey, StepState>>({ analysis: { status: "idle" }, mapping: { status: "idle" } });
+  const scanSteps: ScanStep[] = ["prepare", ...(steps.includes("analysis") ? (["analysis", "checks"] as ScanStep[]) : []), ...(steps.includes("mapping") ? (["mapping"] as ScanStep[]) : [])];
+  const [status, setStatus] = useState<Record<ScanStep, ScanStatus>>(idle);
+  const [errors, setErrors] = useState<Partial<Record<ScanStep, string>>>({});
   const [confirming, setConfirming] = useState(false);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [started, setStarted] = useState(false);
+  const { report } = useGapReport();
+  const [previous, setPrevious] = useState<{ analysis: string | null; mapping: string | null } | null>(null);
+  const [startMs, setStartMs] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const running = Object.values(state).some((s) => s.status === "running");
+  const [finished, setFinished] = useState(false);
+  const running = Object.values(status).some((s) => s === "running");
 
   useEffect(() => {
-    if (!startedAt) return;
-    const t = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 500);
+    if (!startMs || finished) return;
+    const t = setInterval(() => setElapsed(Math.round((Date.now() - startMs) / 1000)), 500);
     return () => clearInterval(t);
-  }, [startedAt]);
+  }, [startMs, finished]);
 
-  async function run(only?: StepKey[]) {
+  const set1 = (k: ScanStep, v: ScanStatus) => setStatus((s) => ({ ...s, [k]: v }));
+
+  async function run(from: ScanStep = "prepare") {
     setConfirming(false);
-    const todo = only ?? steps;
+    setFinished(false);
+    setErrors({});
+    setStarted(true);
+    const t0 = Date.now();
+    setStartMs(t0);
     setElapsed(0);
-    setStartedAt(Date.now());
-    setState((s) => ({ ...s, ...Object.fromEntries(todo.map((k) => [k, { status: "idle" }])) }));
+    // Results count as fresh only once they differ from what was saved before this run.
+    setPrevious({ analysis: report.analysis?.createdAt ?? null, mapping: report.mapping?.createdAt ?? null });
+    const todo = scanSteps.slice(scanSteps.indexOf(from));
+    setStatus((s) => ({ ...s, ...Object.fromEntries(todo.map((k) => [k, "idle" as ScanStatus])) }));
     let anyDone = false;
     for (const step of todo) {
-      setState((s) => ({ ...s, [step]: { status: "running" } }));
+      set1(step, "running");
       try {
-        await runStep(step, workspaceId, set.id);
-        anyDone = true;
-        setState((s) => ({ ...s, [step]: { status: "done" } }));
+        if (step === "prepare") await prepare(workspaceId);
+        else if (step === "checks") {
+          // Load the new facts; the exact comparisons then run in code on them.
+          await refreshShared(`results:${workspaceId}`);
+        } else {
+          await postStep(step, workspaceId, set.id);
+          anyDone = true;
+        }
+        set1(step, "done");
       } catch (e) {
         const msg = e instanceof TypeError ? "Could not reach the app server. Check your connection and try again." : (e as Error).message;
-        setState((s) => ({ ...s, [step]: { status: "failed", error: msg } }));
-        break; // stop: later steps would fail for the same reason
+        set1(step, "failed");
+        setErrors((x) => ({ ...x, [step]: msg }));
+        break;
       }
     }
-    setStartedAt(null);
-    if (anyDone) onDone();
+    setFinished(true);
+    if (anyDone) {
+      await refreshShared(`results:${workspaceId}`);
+      onDone();
+    }
   }
 
+  const failedStep = scanSteps.find((k) => status[k] === "failed");
   const blocked = !aiConfigured
     ? "AI is not available: no Gemini API key is configured on the server."
     : readableDocs === 0
       ? "Upload at least one readable PDF first."
       : null;
-  const primaryLabel = label ?? (hasResults ? "Re-analyze documents" : "Analyze documents");
-  const failed = steps.filter((k) => state[k].status === "failed");
-  const shown = steps.filter((k) => state[k].status !== "idle");
+  const primaryLabel = label ?? (hasResults ? "Analyse again" : "Analyse dossier");
+  const aiRequests = steps.length;
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <button
+          type="button"
           disabled={Boolean(blocked) || running}
           onClick={() => (hasResults ? setConfirming(true) : run())}
           aria-describedby="analyze-help"
+          className="press rounded-full bg-ion px-6 py-3 text-sm font-semibold tracking-wide text-obsidian shadow-[0_0_30px_rgba(57,231,255,0.35)] hover:bg-porcelain focus:outline-none focus-visible:ring-2 focus-visible:ring-porcelain disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
-          {running ? `Analyzing… ${elapsed}s` : primaryLabel}
-        </Button>
-        <span id="analyze-help" className="text-xs text-ink-soft">
-          {blocked ??
-            `${readableDocs} readable document${readableDocs === 1 ? "" : "s"} · ${steps.length} Gemini request${steps.length === 1 ? "" : "s"} (uses API quota) · usually 10–60 s each`}
+          {running ? `Analysing… ${elapsed}s` : primaryLabel}
+        </button>
+        <span id="analyze-help" className="text-xs text-porcelain/55">
+          {blocked ?? `${readableDocs} readable document${readableDocs === 1 ? "" : "s"} · ${aiRequests} Gemini request${aiRequests === 1 ? "" : "s"} (uses API quota)`}
         </span>
       </div>
 
       {confirming && (
-        <Notice tone="warn">
-          This replaces the current {steps.length === 2 ? "analysis and evidence matches" : "results"} with a new AI run and uses API quota. Your
-          reviews are kept.
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" variant="primary" onClick={() => run()}>
+        <div className="panel rounded-xl px-4 py-3 text-sm text-porcelain/85">
+          This replaces the current analysis with a new AI run and uses API quota. Findings you marked as reviewed are kept.
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={() => run()} className="press rounded-full bg-ion px-4 py-1.5 text-xs font-semibold text-obsidian">
               Run again
-            </Button>
-            <Button size="sm" onClick={() => setConfirming(false)}>
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} className="press rounded-full border hairline px-4 py-1.5 text-xs text-porcelain">
               Cancel
-            </Button>
+            </button>
           </div>
-        </Notice>
+        </div>
       )}
 
-      {shown.length > 0 && (
-        <ul className="space-y-1 text-sm" aria-live="polite">
-          {shown.map((k) => (
-            <li key={k} className="flex items-center gap-2">
-              <span aria-hidden className={state[k].status === "done" ? "text-teal" : state[k].status === "failed" ? "text-bad" : "text-mute"}>
-                {state[k].status === "done" ? "✓" : state[k].status === "failed" ? "✕" : "…"}
-              </span>
-              <span className={state[k].status === "failed" ? "text-bad" : "text-ink-soft"}>
-                {STEP_LABEL[k]}
-                {state[k].status === "running" && " — in progress"}
-                {state[k].status === "done" && " — done"}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {started && (
+        <IntelligenceScan
+          steps={scanSteps}
+          status={status}
+          errors={errors}
+          previous={previous}
+          elapsed={elapsed}
+          finished={finished}
+          onRetry={() => failedStep && run(failedStep)}
+        />
       )}
-
-      {failed.map((k) => (
-        <Notice key={k} tone="bad" role="alert">
-          <strong>{STEP_LABEL[k]} failed.</strong> {state[k].error} Earlier results are unchanged.{" "}
-          <button type="button" className="underline" onClick={() => run(steps.slice(steps.indexOf(k)))}>
-            Retry
-          </button>
-        </Notice>
-      ))}
     </div>
   );
 }

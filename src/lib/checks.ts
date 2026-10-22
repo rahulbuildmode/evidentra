@@ -199,7 +199,8 @@ function checkValidityDates(facts: VerifiedFact[], today: string): Finding[] {
   return out;
 }
 
-function workspaceVsDocuments(facts: VerifiedFact[], ws: Workspace): Finding[] {
+// Kept for reference; the workspace form was removed, so this check is no longer run.
+export function workspaceVsDocuments(facts: VerifiedFact[], ws: Workspace): Finding[] {
   const entered = ws.modelNumber.value.trim();
   const models = facts.filter((f) => f.category === "model_number");
   if (!entered || models.length === 0) return [];
@@ -273,6 +274,5 @@ export function crossCheck(
     ...compareSpecifications(facts),
     ...compareRevisions(facts),
     ...(today ? checkValidityDates(facts, today) : []),
-    ...workspaceVsDocuments(facts, ws),
   ];
 }

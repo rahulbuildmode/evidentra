@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
+/*
+ * Evidentra design system.
+ * Mode A — quiet precision (default): warm neutral surfaces, navy text, teal accents.
+ * Mode B — cinematic intelligence (.night): midnight surfaces, fine grid, luminous teal/blue.
+ * Mode B is punctuation only: hero, scan, milestone moments. Regulatory work stays in Mode A.
+ */
+
 :root {
-  --background: #f7f8fa;
+  --background: #f7f7f5;
   --foreground: #0b1f3a;
+
+  /* Motion tokens */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 480ms;
+  --dur-reveal: 700ms;
 }
 
 @theme inline {
@@ -11,7 +26,7 @@
   --color-ink: #0b1f3a;
   --color-ink-soft: #3b4b63;
   --color-mute: #6b7788;
-  --color-line: #e2e6ec;
+  --color-line: #e4e6ea;
   --color-teal: #0f766e;
   --color-teal-dark: #0b5c56;
   --color-teal-soft: #e6f4f2;
@@ -21,18 +36,461 @@
   --color-bad-soft: #fdecea;
   --color-demo: #6d28d9;
   --color-demo-soft: #f1ebfd;
+  /* Mode B palette */
+  --color-night: #060b17;
+  --color-night-2: #0b1426;
+  --color-night-line: rgba(148, 196, 220, 0.14);
+  --color-glow: #2dd4bf;
+  --color-glow-blue: #60a5fa;
+  --color-moon: #e8eef6;
+  /* Cinematic biomedical palette */
+  --color-obsidian: #090b12;
+  --color-obsidian-2: #10131e;
+  --color-crimson: #ff315a;
+  --color-ion: #39e7ff;
+  --color-ultra: #8a5cff;
+  --color-lime: #d8ff3e;
+  --color-porcelain: #f4f3ef;
+  --color-hair: rgba(244, 243, 239, 0.12);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #090b12;
+  color: #f4f3ef;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.18);
+}
+
+/* ---------- Mode B surface ---------- */
+.night {
+  position: relative;
+  isolation: isolate;
+  color: var(--color-moon);
+  background:
+    radial-gradient(120% 80% at 85% -10%, rgba(45, 212, 191, 0.16), transparent 55%),
+    radial-gradient(90% 70% at 0% 110%, rgba(96, 165, 250, 0.14), transparent 60%),
+    linear-gradient(180deg, var(--color-night-2), var(--color-night));
+  overflow: hidden;
+}
+.night::before {
+  /* fine grid */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--color-night-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-night-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 60% 40%, black 30%, transparent 78%);
+  opacity: 0.55;
+}
+.night-muted {
+  color: rgba(232, 238, 246, 0.68);
+}
+.night-faint {
+  color: rgba(232, 238, 246, 0.45);
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes ev-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ev-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ev-atmosphere {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+@keyframes ev-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ev-node {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ev-scan {
+  0% {
+    transform: translateY(-10%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(1100%);
+    opacity: 0;
+  }
+}
+@keyframes ev-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes ev-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+@keyframes ev-slide-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes ev-confirm {
+  0% {
+    background-color: rgba(15, 118, 110, 0.16);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes ev-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* ---------- Motion utilities (all short, none blocking) ---------- */
+.anim-page {
+  animation: ev-fade-up var(--dur-base) var(--ease-out) both;
+}
+.anim-fade-up {
+  animation: ev-fade-up var(--dur-slow) var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+.anim-fade {
+  animation: ev-fade var(--dur-slow) var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+.anim-atmosphere {
+  animation: ev-atmosphere var(--dur-reveal) var(--ease-out) both;
+}
+.anim-draw {
+  stroke-dasharray: var(--len, 400);
+  stroke-dashoffset: var(--len, 400);
+  animation: ev-draw 900ms var(--ease-out) forwards;
+  animation-delay: var(--d, 0ms);
+}
+.anim-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ev-node var(--dur-slow) var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+.anim-flow {
+  stroke-dasharray: 4 8;
+  animation: ev-flow 1.2s linear infinite;
+}
+.anim-pulse {
+  animation: ev-pulse 1.8s var(--ease-in-out) infinite;
+}
+.anim-scan {
+  animation: ev-scan 2.4s var(--ease-in-out) infinite;
+}
+.anim-drawer {
+  animation: ev-slide-in var(--dur-base) var(--ease-out) both;
+}
+.anim-backdrop {
+  animation: ev-fade var(--dur-base) var(--ease-out) both;
+}
+.anim-confirm {
+  animation: ev-confirm 1.6s var(--ease-out) both;
+}
+.anim-status {
+  animation: ev-pop var(--dur-slow) var(--ease-out) both;
+}
+
+/* Skip the hero reveal (second visit in a session, or user clicked). */
+.reveal-skip .anim-fade-up,
+.reveal-skip .anim-fade,
+.reveal-skip .anim-atmosphere,
+.reveal-skip .anim-node {
+  animation: none;
+}
+.reveal-skip .anim-draw {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+/* Press feedback for buttons and links styled as buttons. */
+.press {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+details[data-print-open] > div {
+  animation: ev-fade var(--dur-base) var(--ease-out) both;
+}
+
+/* Respect reduced motion: no movement, instant state, everything still works. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .anim-draw {
+    stroke-dashoffset: 0 !important;
+  }
+  .anim-scan,
+  .anim-flow,
+  .anim-pulse {
+    animation: none !important;
+  }
 }
 
 @media print {
   .no-print {
+    display: none !important;
+  }
+  .night {
+    background: white !important;
+    color: #0b1f3a !important;
+  }
+  .night::before {
+    display: none;
+  }
+  .night-muted,
+  .night-faint {
+    color: #3b4b63 !important;
+  }
+  * {
+    animation: none !important;
+  }
+}
+
+/* ---------- Cinematic experience ---------- */
+.stage {
+  position: relative;
+  isolation: isolate;
+  background: #090b12;
+  color: #f4f3ef;
+}
+.sci-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(57, 231, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 231, 255, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 25%, transparent 75%);
+}
+.glow-crimson {
+  background: radial-gradient(closest-side, rgba(255, 49, 90, 0.28), transparent);
+}
+.glow-ion {
+  background: radial-gradient(closest-side, rgba(57, 231, 255, 0.22), transparent);
+}
+.text-ion-grad {
+  background: linear-gradient(90deg, #39e7ff, #8a5cff 55%, #ff315a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hairline {
+  border-color: rgba(244, 243, 239, 0.12);
+}
+.panel {
+  background: linear-gradient(180deg, rgba(244, 243, 239, 0.045), rgba(244, 243, 239, 0.015));
+  border: 1px solid rgba(244, 243, 239, 0.1);
+  backdrop-filter: blur(6px);
+}
+
+/* Scroll reveal: content is visible by default; JS only adds the entrance. */
+.reveal {
+  transition:
+    opacity 700ms var(--ease-out),
+    transform 700ms var(--ease-out),
+    filter 700ms var(--ease-out);
+  transition-delay: var(--d, 0ms);
+}
+.reveal[data-state="pending"] {
+  opacity: 0;
+  transform: translateY(22px);
+  filter: blur(4px);
+}
+
+@keyframes ev-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(var(--dx, 6px), var(--dy, -8px));
+  }
+}
+.drift {
+  animation: ev-drift var(--t, 9s) var(--ease-in-out) infinite;
+}
+@keyframes ev-beam {
+  0% {
+    transform: translateY(-20vh);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh);
+    opacity: 0;
+  }
+}
+.beam {
+  animation: ev-beam 6s var(--ease-in-out) infinite;
+}
+@keyframes ev-dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+.dash-flow {
+  stroke-dasharray: 6 10;
+  animation: ev-dash 1.4s linear infinite;
+}
+@keyframes ev-blink {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.blink {
+  animation: ev-blink var(--t, 2.6s) var(--ease-in-out) infinite;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes ev-highlight {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+mark.conflict {
+  color: #090b12;
+  background-image: linear-gradient(#ff315a, #ff315a);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-color: transparent;
+  padding: 0 0.2em;
+  border-radius: 2px;
+  animation: ev-highlight 700ms var(--ease-out) both;
+  animation-delay: var(--d, 250ms);
+}
+@supports (animation-timeline: view()) {
+  .parallax-slow {
+    animation: ev-parallax linear both;
+    animation-timeline: view();
+    animation-range: exit 0% exit 100%;
+  }
+  @keyframes ev-parallax {
+    to {
+      transform: translateY(-14%);
+      opacity: 0.35;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal[data-state="pending"] {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .drift,
+  .beam,
+  .dash-flow,
+  .blink,
+  .parallax-slow {
+    animation: none !important;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+    color: #0b1f3a;
+  }
+  .print-hide {
     display: none !important;
   }
 }

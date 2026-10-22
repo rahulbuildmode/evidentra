@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/AppShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Evidentra — regulatory documentation copilot",
+  title: "Evidentra — regulatory intelligence for medical-device teams",
   description:
-    "Review medical-device documentation for missing or inconsistent evidence before human regulatory review. Not legal advice; does not certify compliance.",
+    "Upload a medical-device dossier, trace evidence to its pages, find cross-document inconsistencies and generate a CDSCO readiness brief. Not legal advice; does not certify compliance.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -25,9 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
-        <AppShell>{children}</AppShell>
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

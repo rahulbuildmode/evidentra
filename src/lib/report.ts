@@ -327,14 +327,14 @@ export function buildReport(input: {
     questions.push({
       id: "q-class",
       question: "What is the device's confirmed risk class under MDR 2017?",
-      why: ws.classification.value === "Not yet classified" ? "The workspace has no classification." : `The workspace says "${ws.classification.value}" but this is not marked verified.`,
+      why: "The risk class has not been confirmed. It decides which requirements apply.",
     });
   }
   if (ws.pathway.value === "Not yet decided" || !ws.pathway.verified) {
     questions.push({
       id: "q-pathway",
-      question: "Which application route and form apply (e.g. manufacturing vs import licence)?",
-      why: ws.pathway.value === "Not yet decided" ? "No pathway selected." : `"${ws.pathway.value}" is not marked verified.`,
+      question: "Which application route applies (for example a manufacturing or an import licence)?",
+      why: "The pathway has not been confirmed. It decides which forms and documents are needed.",
     });
   }
   if (set.verification === "synthetic_demo") {
@@ -419,20 +419,6 @@ export function buildReport(input: {
     });
   }
   const unverifiedFields = (Object.keys(WORKSPACE_LABELS) as WorkspaceFieldKey[]).filter((k) => !ws[k].verified);
-  if (unverifiedFields.length) {
-    actions.push({
-      id: "a-ws-fields",
-      priority: 3,
-      title: "Verify workspace details",
-      action: `Confirm against source documents: ${unverifiedFields.map((k) => WORKSPACE_LABELS[k]).join(", ")}.`,
-      reason: "Unverified fields affect applicability and consistency checks.",
-      itemKey: "workspace",
-      provenance: "code",
-      citations: [],
-      reviewState: "n/a",
-      href: "/workspace",
-    });
-  }
   actions.sort((a, b) => a.priority - b.priority);
 
   // ---- Counts ----
