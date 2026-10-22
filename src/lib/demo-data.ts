@@ -15,8 +15,8 @@ export const DEMO_WORKSPACE: Workspace = {
       "Fictional example: spot-check, non-invasive measurement of oxygen saturation and pulse rate.",
     verified: false,
   },
-  classification: { value: "Class B", verified: false },
-  pathway: { value: "Manufacturing licence — Class A/B (State Licensing Authority)", verified: false },
+  classification: { value: "Class C", verified: false },
+  pathway: { value: "Manufacturing licence — Class C/D (Central Licensing Authority, Form MD-7)", verified: false },
 };
 
 export const BLANK_WORKSPACE: Workspace = {
@@ -34,7 +34,7 @@ export const DEMO_STATE: AppState = {
   workspaceId: DEMO_WORKSPACE_ID,
   isDemo: true,
   workspace: DEMO_WORKSPACE,
-  requirementSetId: "synthetic-demo-checklist",
+  requirementSetId: "cdsco-mdr2017-mfg-bcd",
 };
 
 export const BLANK_STATE: AppState = {

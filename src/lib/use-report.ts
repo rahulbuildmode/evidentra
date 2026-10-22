@@ -1,7 +1,7 @@
 "use client";
 
 import { buildReport } from "./report";
-import { getRequirementSet, SYNTHETIC_DEMO_SET } from "./requirements";
+import { CDSCO_MFG_BCD } from "./requirements";
 import { useReviews } from "./review-store";
 import { useAppState, useToday } from "./store";
 import { useResults } from "./use-results";
@@ -14,7 +14,8 @@ export function useGapReport() {
   const results = useResults(state.workspaceId);
   const uploads = useUploads(state.workspaceId);
   const reviews = useReviews(state.workspaceId);
-  const set = getRequirementSet(state.requirementSetId) ?? SYNTHETIC_DEMO_SET;
+  // One supported pathway: the verified CDSCO library (src/lib/regulatory).
+  const set = CDSCO_MFG_BCD;
   const report = buildReport({
     state,
     set,

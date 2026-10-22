@@ -1,4 +1,5 @@
 import type { AnalysisResult } from "./analysis";
+import type { CheckRecord } from "./run";
 import type { Finding, FindingCitation, Workspace } from "./types";
 
 /**
@@ -275,4 +276,84 @@ export function crossCheck(
     ...compareRevisions(facts),
     ...(today ? checkValidityDates(facts, today) : []),
   ];
+}
+
+/**
+ * Every deterministic comparison that crossCheck actually executes, with its outcome taken from
+ * crossCheck's own findings (so the trace can never disagree with what was flagged).
+ */
+export function traceChecks(result: AnalysisResult | null, ws: Workspace, today: string | null): CheckRecord[] {
+  const facts = verifiedFactsOf(result);
+  const ids = new Set(crossCheck(result, ws, today).map((f) => f.id));
+  const out: CheckRecord[] = [];
+  const cmp = (f: VerifiedFact) => ({ value: f.value, filename: f.filename, page: f.page });
+
+  const identity: [string, string, boolean][] = [
+    ["model_number", "Model number", true],
+    ["device_name", "Device name", true],
+    ["manufacturer_name", "Manufacturer name", true],
+    ["intended_use", "Intended use wording", false],
+  ];
+  for (const [category, label, within] of identity) {
+    const group = facts.filter((f) => f.category === category);
+    const files = new Set(group.map((f) => f.filename)).size;
+    if (group.length < 2 || (files < 2 && !within)) continue;
+    const differs = ids.has(`cc-${category}-mismatch`);
+    const format = ids.has(`cc-${category}-format`);
+    out.push({
+      id: `chk-${category}`,
+      check: "Exact comparison",
+      field: label,
+      compared: group.map(cmp),
+      outcome: differs ? "differs" : format ? "format_only" : "consistent",
+      detail: differs ? "Values differ after normalising." : format ? "Same value, written differently." : "All values match.",
+    });
+  }
+
+  const specs = facts.filter((f) => f.category === "technical_specification");
+  const byParam = new Map<string, VerifiedFact[]>();
+  for (const f of specs) byParam.set(normalizeName(f.label), [...(byParam.get(normalizeName(f.label)) ?? []), f]);
+  for (const [key, group] of byParam) {
+    if (new Set(group.map((f) => f.filename)).size < 2) continue;
+    const differs = ids.has(`cc-spec-${key}`);
+    out.push({
+      id: `chk-spec-${key}`,
+      check: "Specification comparison",
+      field: group[0].label,
+      compared: group.map(cmp),
+      outcome: differs ? "differs" : "consistent",
+      detail: differs ? "Values differ across documents." : "Values match across documents.",
+    });
+  }
+
+  const revs = facts.filter((f) => f.category === "document_revision");
+  for (const file of new Set(revs.map((f) => f.filename))) {
+    const group = revs.filter((f) => f.filename === file);
+    const differs = ids.has(`cc-revision-${normalizeName(file)}`);
+    out.push({
+      id: `chk-rev-${normalizeName(file)}`,
+      check: "Revision consistency",
+      field: `Revision in ${file}`,
+      compared: group.map(cmp),
+      outcome: differs ? "differs" : "consistent",
+      detail: differs ? "More than one revision is stated." : "One revision stated.",
+    });
+  }
+
+  if (today) {
+    for (const f of facts) {
+      if (f.category !== "document_date" || !/valid|expir/i.test(f.label) || !f.normalizedDate) continue;
+      const expired = ids.has(`cc-expired-${f.id}`);
+      const soon = ids.has(`cc-expiring-${f.id}`);
+      out.push({
+        id: `chk-date-${f.id}`,
+        check: "Validity date",
+        field: `${f.label} (${f.filename})`,
+        compared: [cmp(f)],
+        outcome: expired ? "failed" : soon ? "warning" : "passed",
+        detail: expired ? `Date has passed (checked against ${today}).` : soon ? `Ends within 90 days of ${today}.` : `Still valid on ${today}.`,
+      });
+    }
+  }
+  return out;
 }

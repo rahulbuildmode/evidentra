@@ -1,3 +1,4 @@
+import { MDR_2017_SOURCE, MFG_LICENCE_BCD } from "./regulatory/library";
 import type { Classification, Workspace } from "./types";
 
 /**
@@ -33,106 +34,37 @@ export interface RequirementSet {
   requirements: Requirement[];
 }
 
-const MDR_PDF =
-  "https://cdsco.gov.in/opencms/resources/UploadCDSCOWeb/2022/m_device/mdr,%202017%20(1).pdf";
+const MDR_PDF = MDR_2017_SOURCE.url;
 
+/**
+ * The requirement set sent to the AI evidence matcher, derived from the verified regulatory library
+ * (src/lib/regulatory/library.ts) so both always use the same ids, wording and sources.
+ * Items that only a person can decide are not sent.
+ */
 export const CDSCO_MFG_BCD: RequirementSet = {
   id: "cdsco-mdr2017-mfg-bcd",
-  name: "MDR 2017 — documents for a Class B/C/D manufacturing licence application (selected items)",
-  version: "1.0 (text as amended to 14 Oct 2022)",
+  name: MFG_LICENCE_BCD.name,
+  version: `${MFG_LICENCE_BCD.libraryVersion} (text as amended to 14 Oct 2022)`,
   verification: "official_text",
   verificationNote:
-    "Each item was checked against the CDSCO-published text of the Medical Devices Rules, 2017 \"as amended vide GSR 777(E) dt. 14-10-2022\". Amendments after that date were NOT reviewed, and the online portal checklist may add items. This is a selection, not the full list. Not legal advice.",
-  sourceName: "Medical Devices Rules, 2017 (CDSCO PDF)",
+    "Each item's excerpt is checked against the cited page of the CDSCO-published Medical Devices Rules, 2017 (as amended vide GSR 777(E) dt. 14-10-2022). Amendments after that date and the online portal checklist were NOT reviewed. A selection, not the full list. Not legal advice.",
+  sourceName: MFG_LICENCE_BCD.source.title,
   sourceUrl: MDR_PDF,
   applicability: {
     classes: ["Class B", "Class C", "Class D"],
     pathwayPrefix: "Manufacturing licence",
-    description:
-      "Domestic manufacturer applying for a licence to manufacture for sale or distribution of a Class B, C or D device (rules 20 and 21; Fourth Schedule, Part II, clause (ii)). Not checked for import, Class A or in vitro diagnostic devices.",
+    description: MFG_LICENCE_BCD.scope,
   },
-  requirements: [
-    {
-      id: "MDR-4S-II(ii)(a)",
-      title: "Constitution details of the manufacturer",
-      description: "Constitution details of the domestic manufacturer must accompany the application.",
-      expectedEvidence: "A document stating the legal constitution of the manufacturing firm (e.g. company type, registration, ownership).",
-      sourceLocation: "Fourth Schedule, Part II, clause (ii)(a) — PDF p.100",
-      officialExcerpt: "(a) Constitution details of domestic manufacturer or authorised agent.",
-    },
-    {
-      id: "MDR-4S-II(ii)(b)",
-      title: "Site or Plant Master File",
-      description: "A Site or Plant Master File as specified in Appendix I of the Fourth Schedule.",
-      expectedEvidence: "A Plant/Site Master File describing the manufacturing site, premises, personnel and quality system.",
-      sourceLocation: "Fourth Schedule, Part II, clause (ii)(b) — PDF p.100",
-      officialExcerpt: "(b) Site or plant master file as specified in Appendix I of this Schedule.",
-    },
-    {
-      id: "MDR-4S-II(ii)(c)",
-      title: "Device Master File",
-      description: "A Device Master File as specified in Appendix II (devices other than IVDs).",
-      expectedEvidence: "A Device Master File (or equivalent dossier) for the device, structured per Appendix II.",
-      sourceLocation: "Fourth Schedule, Part II, clause (ii)(c) — PDF p.100",
-      officialExcerpt: "(c) Device master file as specified in Appendix II for medical devices other than in vitro diagnostic medical devices",
-    },
-    {
-      id: "MDR-4S-II(ii)(d)",
-      title: "Essential Principles checklist",
-      description: "An Essential Principles checklist demonstrating conformity to the Essential Principles of Safety and Performance.",
-      expectedEvidence: "A completed checklist listing each Essential Principle with how conformity is shown.",
-      sourceLocation: "Fourth Schedule, Part II, clause (ii)(d) — PDF p.100",
-      officialExcerpt: "(d) Essential Principles checklist for demonstrating conformity to the Essential Principles of Safety and Performance",
-    },
-    {
-      id: "MDR-4S-II(ii)(f)",
-      title: "Undertaking on Fifth Schedule compliance",
-      description: "A signed undertaking that the manufacturing site complies with the Fifth Schedule (quality management system).",
-      expectedEvidence: "A signed undertaking stating the site complies with the Fifth Schedule.",
-      sourceLocation: "Fourth Schedule, Part II, clause (ii)(f) — PDF p.100",
-      officialExcerpt: "(f) Undertaking signed stating that the manufacturing site is in compliance with the provisions of the Fifth Schedule.",
-    },
-    {
-      id: "MDR-4S-AppII-2.1",
-      title: "DMF: general device description",
-      description: "The Device Master File should give a general description including generic name, model name, model number, materials, intended use and indications.",
-      expectedEvidence: "Passages stating generic name, model name/number, materials of construction and intended use.",
-      sourceLocation: "Fourth Schedule, Appendix II, section 2.1(a) — PDF p.106",
-      officialExcerpt: "A general description including its generic name, model name, model No., materials of construction, intended use, indications",
-    },
-    {
-      id: "MDR-4S-AppII-3.0",
-      title: "DMF: labelling (label and instructions for use)",
-      description: "The Device Master File should contain a complete set of labelling, including the original label and instructions for use.",
-      expectedEvidence: "A copy of the device label and the instructions for use, consistent with the device described.",
-      sourceLocation: "Fourth Schedule, Appendix II, section 3.0 — PDF p.107",
-      officialExcerpt: "The dossier should typically contain a complete set of labeling associated with the device",
-    },
-    {
-      id: "MDR-4S-AppII-6.0",
-      title: "DMF: risk analysis and control summary",
-      description: "A summary of risks identified and how they have been controlled to an acceptable level, with the technique used.",
-      expectedEvidence: "A risk summary listing hazards, the analysis technique, control measures and residual-risk acceptability.",
-      sourceLocation: "Fourth Schedule, Appendix II, section 6.0 — PDF p.109",
-      officialExcerpt: "a summary of the risks identified during the risk analysis process and how these risks have been controlled to an acceptable level",
-    },
-    {
-      id: "MDR-4S-AppII-7.2",
-      title: "DMF: biocompatibility",
-      description: "A list of materials in contact with patient or user and, where testing was done, details of biocompatibility tests and results.",
-      expectedEvidence: "A list of patient/user-contacting materials and a biocompatibility test summary (or a justified 'not applicable').",
-      sourceLocation: "Fourth Schedule, Appendix II, section 7.2 — PDF p.111",
-      officialExcerpt: "The dossier should contain a list of all materials in direct or indirect contact with the patient or user.",
-    },
-    {
-      id: "MDR-4S-AppII-note3",
-      title: "Certificates within validity",
-      description: "All certificates submitted must be within their validity period.",
-      expectedEvidence: "Each submitted certificate shows a validity date that has not passed.",
-      sourceLocation: "Fourth Schedule, Appendix II, closing notes, item 3 — PDF p.114",
-      officialExcerpt: "All certificates submitted must be within the validity period.",
-    },
-  ],
+  requirements: MFG_LICENCE_BCD.requirements
+    .filter((r) => r.criterion.kind !== "human_only")
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.criterionText,
+      expectedEvidence: r.evidenceNeeded,
+      sourceLocation: `${r.reference} — PDF p.${r.sourcePage}`,
+      officialExcerpt: r.excerpt,
+    })),
 };
 
 export const SYNTHETIC_DEMO_SET: RequirementSet = {

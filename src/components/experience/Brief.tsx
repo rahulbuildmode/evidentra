@@ -1,10 +1,13 @@
 "use client";
 
-import { actionListCsv } from "@/lib/csv";
+import { validationCsv } from "@/lib/csv";
 import { downloadCsv } from "@/lib/download";
-import { DISPLAY_LABEL, type ReportFinding } from "@/lib/report";
+import type { ReportFinding } from "@/lib/report";
+import { inspector } from "@/lib/inspector-store";
 import { useGapReport } from "@/lib/use-report";
+import { useValidation } from "@/lib/use-validation";
 import { ChapterHead } from "./Chapter";
+import { ValidationSections } from "./ValidationSections";
 import { Reveal } from "./Reveal";
 
 /** Labels that tell readers what kind of finding this is and whether a person has reviewed it. */
@@ -26,25 +29,22 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 /** Feature 3 — CDSCO Readiness Brief: one concise, readable report from the analysis. */
 export function Brief() {
   const { state, report, loading } = useGapReport();
-  const c = report.counts;
   const isSeed = report.analysis?.source === "demo-seed" || report.mapping?.source === "demo-seed";
   const device =
     report.analysis?.items.find((i) => i.kind === "fact" && i.category === "device_name" && i.citations[0]?.verifiedPage !== null)?.value ??
     (state.isDemo ? state.workspace.deviceName.value : "") ??
     "";
   const keyFindings = report.findings.filter((f) => f.group === "discrepancy" && !f.dismissed && f.effectiveStatus !== "resolved");
-  const notFound = report.requirements.filter((r) => ["not_found", "needs_review", "partial", "conflicting", "missing_confirmed"].includes(r.display));
-  const possibleGaps = report.findings.filter((f) => f.group === "missing_info" && !f.dismissed);
-  const actions = report.actions.slice(0, 6);
-  const official = report.set.verification === "official_text";
+  const { report: v } = useValidation(state.workspaceId);
   const analysed = Boolean(report.analysis || report.mapping);
 
-  const summary = !analysed
-    ? `${plural(report.documents.total, "document")} in the dossier; not analysed yet.`
-    : `${plural(report.documents.usable, "readable document")} analysed. ${plural(keyFindings.length, "inconsistency", "inconsistencies")}, ${plural(
-        notFound.length + possibleGaps.length,
-        "unresolved issue",
-      )}, ${c.awaitingReview} item${c.awaitingReview === 1 ? "" : "s"} awaiting human review.`;
+  const summary = !v
+    ? "Preparing the validation report…"
+    : `${plural(v.inputs.documentsReviewed.length, "readable document")} checked against ${v.results.length} selected CDSCO requirements: ${v.counts.conflict_detected} conflict${
+        v.counts.conflict_detected === 1 ? "" : "s"
+      }, ${plural(v.counts.potential_gap, "potential gap")}, ${v.counts.needs_human_review} needing human review, ${v.counts.evidence_found} with evidence found, ${
+        v.counts.validated_against_source
+      } validated against source, ${v.counts.not_applicable} not applicable.${analysed ? ` ${plural(keyFindings.length, "cross-document inconsistency", "cross-document inconsistencies")}.` : ""}`;
 
   return (
     <section id="report" className="relative bg-porcelain px-5 py-28 text-obsidian print:py-0">
@@ -80,8 +80,8 @@ export function Brief() {
               </button>
               <button
                 type="button"
-                disabled={!analysed}
-                onClick={() => downloadCsv("evidentra-readiness-brief.csv", actionListCsv(report))}
+                disabled={!v}
+                onClick={() => v && downloadCsv("evidentra-cdsco-validation.csv", validationCsv(v))}
                 className="press rounded-full border border-obsidian/20 px-4 py-2 text-xs font-semibold hover:border-obsidian disabled:opacity-40"
               >
                 Download CSV
@@ -93,6 +93,12 @@ export function Brief() {
           <p className="mt-2 text-sm text-obsidian/60">
             This brief supports human review. It does not certify compliance, is not legal advice, and does not predict or guarantee CDSCO approval.
           </p>
+          {report.analysis && (
+            <p className="mt-2 font-mono text-[11px] text-obsidian/50">
+              Built from {isSeed ? "the demo seed" : `analysis run ${report.analysis.runId}`} saved {new Date(report.analysis.createdAt).toLocaleString()}
+              {report.mapping && report.mapping.createdAt !== report.analysis.createdAt && ` · requirement matches saved ${new Date(report.mapping.createdAt).toLocaleString()}`}
+            </p>
+          )}
 
           {analysed && (
             <>
@@ -121,86 +127,23 @@ export function Brief() {
                             {f.citations.length > 1 && ` · +${f.citations.length - 1} more passage${f.citations.length > 2 ? "s" : ""}`}
                           </p>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => inspector.open({ kind: "finding", finding: f, workspaceId: state.workspaceId })}
+                          className="print-hide mt-1 text-xs font-medium underline underline-offset-4 hover:text-crimson"
+                        >
+                          Inspect evidence
+                        </button>
                       </li>
                     );
                   })}
                 </ul>
               )}
 
-              <h4 className="mt-10 font-mono text-[11px] uppercase tracking-[0.25em] text-crimson">Unresolved issues</h4>
-              <ul className="mt-3 space-y-3 text-sm">
-                {notFound.map((r) => (
-                  <li key={r.key}>
-                    <span className="font-medium">{r.requirement.title}</span> <span className="font-mono text-xs text-obsidian/45">{r.requirement.id}</span>
-                    <div className="text-obsidian/65">
-                      {DISPLAY_LABEL[r.display]}
-                      {r.display === "not_found" && " — not proof that it is missing; confirm before acting."}
-                    </div>
-                  </li>
-                ))}
-                {possibleGaps.map((f) => (
-                  <li key={f.key}>
-                    <span className="font-medium">Possible gap: {f.title}</span>
-                    <div className="text-obsidian/65">Not found in the uploaded text — it may exist elsewhere.</div>
-                  </li>
-                ))}
-                {report.questions.map((q) => (
-                  <li key={q.id}>
-                    <span className="font-medium">{q.question}</span>
-                    <div className="text-obsidian/65">{q.why}</div>
-                  </li>
-                ))}
-              </ul>
-
-              <h4 className="mt-10 font-mono text-[11px] uppercase tracking-[0.25em] text-crimson">Recommended next actions</h4>
-              {actions.length === 0 ? (
-                <p className="mt-3 text-sm text-obsidian/60">No open actions. A qualified person should still review the full dossier.</p>
-              ) : (
-                <ol className="mt-3 space-y-3">
-                  {actions.map((a, i) => (
-                    <li key={a.id} className="flex gap-4">
-                      <span className="font-mono text-sm font-bold text-obsidian/30">{String(i + 1).padStart(2, "0")}</span>
-                      <div className="text-sm">
-                        <div className="font-medium">{a.action}</div>
-                        <div className="text-obsidian/55">{a.title}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              )}
-
-              <h4 className="mt-10 font-mono text-[11px] uppercase tracking-[0.25em] text-crimson">Regulatory references</h4>
-              {official ? (
-                <>
-                  <p className="mt-3 rounded-xl bg-porcelain px-4 py-3 text-sm text-obsidian/75">
-                    Checked against the CDSCO-published Medical Devices Rules, 2017 text (as amended to 14 Oct 2022). Whether these apply to your
-                    device class and pathway is <strong>unresolved</strong> — confirm with a qualified person. Later amendments were not reviewed.
-                  </p>
-                  <ul className="mt-3 divide-y divide-obsidian/10 text-sm">
-                    {report.requirements.map((r) => (
-                      <li key={r.key} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5">
-                        <span>
-                          <span className="font-medium">{r.requirement.title}</span>
-                          <span className="ml-2 font-mono text-[11px] text-obsidian/45">{r.requirement.sourceLocation}</span>
-                        </span>
-                        <span className="text-xs text-obsidian/60">{DISPLAY_LABEL[r.display]}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {report.set.sourceUrl && (
-                    <a href={report.set.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs underline underline-offset-4">
-                      {report.set.sourceName} ↗
-                    </a>
-                  )}
-                </>
-              ) : (
-                <p className="mt-3 text-sm text-obsidian/60">
-                  This dossier uses a synthetic demo checklist, so no official regulatory references apply. Start your own dossier to check against the
-                  verified MDR 2017 items.
-                </p>
-              )}
             </>
           )}
+
+          <ValidationSections />
         </Reveal>
       </div>
     </section>

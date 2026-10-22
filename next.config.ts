@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
     "/api/documents": ["./fixtures/demo-dossier/*.pdf"],
     "/api/analyze": ["./fixtures/demo-dossier/*.pdf"],
     "/api/requirements/map": ["./fixtures/demo-dossier/*.pdf"],
+    "/api/runs": ["./fixtures/demo-dossier/*.pdf"],
+    "/api/profile": ["./fixtures/demo-dossier/*.pdf"],
+    "/api/validation": ["./fixtures/demo-dossier/*.pdf"],
+    "/api/proof/fixture": ["./fixtures/blank_scan_no_text.pdf", "./fixtures/device_description_AP-200A.pdf"],
   },
   partialPrefetching: true,
   // The six old pages are now chapters of one experience; keep their URLs working.

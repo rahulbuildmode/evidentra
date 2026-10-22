@@ -1,5 +1,6 @@
 import { EVIDENCE_LABEL } from "./mapping";
 import { FINDING_STATUS_LABEL } from "./review";
+import { VALIDATION_LABEL, type ValidationReport } from "./regulatory/types";
 import { DISPLAY_LABEL, PROVENANCE_LABEL, type GapReport, type ReportCitation } from "./report";
 
 /**
@@ -106,6 +107,43 @@ export function actionListCsv(r: GapReport): string {
       quotes(a.citations),
       a.reviewState,
       origin(r.isDemo),
+    ]),
+  );
+}
+
+/** The CDSCO validation report, one row per requirement — the same data the Readiness Brief shows. */
+export function validationCsv(v: ValidationReport): string {
+  return toCsv(
+    [
+      "requirement_id", "requirement", "official_reference", "source_url", "source_pdf_page", "source_verified",
+      "applicability", "applicability_rationale", "validation_status", "explanation", "what_was_searched",
+      "evidence", "ai_proposed_status", "deterministic_checks", "next_action", "human_review_required",
+      "pathway_decision", "library_version", "generated_at", "data_origin", "disclaimer",
+    ],
+    v.results.map((r) => [
+      r.requirementId,
+      r.title,
+      r.reference,
+      r.sourceUrl,
+      r.sourcePage,
+      r.sourceVerified ? "verified" : "UNVERIFIED",
+      r.applicability.decision,
+      r.applicability.rationale,
+      VALIDATION_LABEL[r.status],
+      r.explanation,
+      r.searched,
+      r.evidence
+        .map((e) => `[${e.kind === "ai_quote" ? `AI quote, ${e.check}` : e.kind === "keyword" ? "keyword located by code" : "compared by code"}] ${e.filename} p.${e.page ?? "?"}: "${e.text}"`)
+        .join(" | "),
+      r.ai?.proposedStatus ?? "",
+      r.deterministic.map((d) => `${d.check}: ${d.outcome}`).join(" | "),
+      r.nextAction,
+      r.humanReviewRequired ? "yes" : "no",
+      v.decision.label,
+      `${v.pathway.id} v${v.pathway.libraryVersion} (checked ${v.pathway.lastReviewed})`,
+      v.generatedAt,
+      v.synthetic ? "SYNTHETIC DEMO DATA" : "user workspace",
+      "Prototype readiness assessment. Not an official CDSCO decision, legal opinion or compliance certification.",
     ]),
   );
 }

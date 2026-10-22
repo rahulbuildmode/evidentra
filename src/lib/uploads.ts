@@ -22,6 +22,8 @@ export interface UploadedDocumentMeta {
   /** Pages with no extractable text (likely scanned images). */
   emptyPages: number[];
   error: string | null;
+  /** Server-measured text extraction time (ms, monotonic clock). Absent on uploads made before this was recorded. */
+  extractMs?: number;
   /** "demo" = loaded from the fictional demo dossier; absent/"user" = uploaded by the user. */
   origin?: "demo" | "user";
 }
@@ -40,4 +42,9 @@ const ID_RE = /^[a-z0-9-]{1,64}$/;
 /** IDs become file names on the server, so only allow a safe character set. */
 export function isSafeId(id: string | null | undefined): id is string {
   return typeof id === "string" && ID_RE.test(id);
+}
+
+/** Separate workspace for the "Prove it's real" tests, so they never touch the dossier's documents or results. */
+export function proofWorkspaceId(workspaceId: string): string {
+  return `${workspaceId.slice(0, 58)}-proof`;
 }

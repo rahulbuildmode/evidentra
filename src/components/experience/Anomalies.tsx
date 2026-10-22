@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { ReportCitation, ReportFinding } from "@/lib/report";
+import { inspector } from "@/lib/inspector-store";
 import { reviewActions } from "@/lib/review-store";
 import { useGapReport } from "@/lib/use-report";
 import { ChapterHead } from "./Chapter";
@@ -187,6 +188,13 @@ export function Anomalies() {
                       </span>
                     </button>
                     {sel.changedSinceReview && <p className="mt-2 text-xs text-lime">The evidence changed since your review.</p>}
+                    <button
+                      type="button"
+                      onClick={() => inspector.open({ kind: "finding", finding: sel, workspaceId: state.workspaceId })}
+                      className="press mt-3 block text-xs text-ion underline-offset-4 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-ion"
+                    >
+                      Inspect raw evidence →
+                    </button>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { EvidenceInspector } from "@/components/EvidenceInspector";
 import { Anomalies } from "@/components/experience/Anomalies";
 import { Brief } from "@/components/experience/Brief";
 import { Dossier } from "@/components/experience/Dossier";
@@ -21,6 +22,7 @@ export default function Home() {
         <Brief />
         <FinalCta />
       </main>
+      <EvidenceInspector />
     </>
   );
 }

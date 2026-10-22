@@ -10,7 +10,9 @@ export async function ingestPdf(
   bytes: Uint8Array,
   origin: "demo" | "user",
 ): Promise<UploadedDocumentMeta> {
+  const t0 = performance.now();
   const result = await extractPdfPages(bytes);
+  const extractMs = Math.round(performance.now() - t0);
   const pages = result.ok ? result.pages : [];
   const charCount = pages.reduce((n, p) => n + p.text.replace(/\s/g, "").length, 0);
   const doc: UploadedDocument = {
@@ -29,6 +31,7 @@ export async function ingestPdf(
         : null
       : result.error,
     origin,
+    extractMs,
     pages,
   };
   await saveDocument(doc, bytes);

@@ -27,7 +27,8 @@ export function useResults(workspaceId: string) {
   return {
     loading: e.loading && e.data === undefined,
     error: e.error ?? null,
-    aiConfigured: e.data?.aiConfigured ?? false,
+    /** null = not known yet (still loading, or the status request failed) — never shown as "no key". */
+    aiConfigured: e.data ? e.data.aiConfigured : null,
     model: e.data?.model ?? "",
     analysis: e.data?.analysis ?? null,
     mapping: e.data?.mapping ?? null,

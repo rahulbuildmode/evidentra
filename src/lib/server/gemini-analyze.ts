@@ -8,7 +8,7 @@ import {
   type Uncertainty,
 } from "../analysis";
 import type { UploadedDocument } from "../uploads";
-import { AnalysisError, buildDocumentsPrompt, generateStructured, UNTRUSTED_TEXT_RULES } from "./gemini-common";
+import { AnalysisError, buildDocumentsPrompt, generateStructured, UNTRUSTED_TEXT_RULES, type AiTrace } from "./gemini-common";
 import { checkCitation, dateAppearsInQuote } from "./verify-quotes";
 
 export { AnalysisError } from "./gemini-common";
@@ -80,17 +80,24 @@ export function toItems(out: ModelOutput, docs: UploadedDocument[], runId: strin
   return items;
 }
 
-export async function analyzeDocuments(
-  workspaceId: string,
-  docs: UploadedDocument[],
-  skipped: AnalysisResult["skipped"],
-): Promise<AnalysisResult> {
+/** The AI request alone: returns the model's validated proposal, before any code verification. */
+export async function requestAnalysis(docs: UploadedDocument[], trace?: AiTrace) {
   if (docs.length === 0) {
     throw new AnalysisError("no_documents", 400, "No uploaded documents with extractable text in this workspace.");
   }
   const { prompt, sent } = buildDocumentsPrompt(docs);
-  const { data, model, usage } = await generateStructured(ModelOutputSchema, SYSTEM_INSTRUCTION, prompt);
-  const runId = randomUUID().slice(0, 8);
+  const { data, model, usage } = await generateStructured(ModelOutputSchema, SYSTEM_INSTRUCTION, prompt, trace);
+  return { data, model, usage, sent };
+}
+
+export async function analyzeDocuments(
+  workspaceId: string,
+  docs: UploadedDocument[],
+  skipped: AnalysisResult["skipped"],
+  runId: string = randomUUID().slice(0, 8),
+  trace?: AiTrace,
+): Promise<AnalysisResult> {
+  const { data, model, usage, sent } = await requestAnalysis(docs, trace);
   return {
     runId,
     workspaceId,

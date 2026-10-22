@@ -6,7 +6,12 @@ import { refreshShared, useShared } from "@/lib/shared-fetch";
 import { actions } from "@/lib/store";
 import { useGapReport } from "@/lib/use-report";
 import { MAX_UPLOAD_BYTES, MAX_UPLOADS_PER_WORKSPACE, type UploadedDocument } from "@/lib/uploads";
+import { inspector } from "@/lib/inspector-store";
 import { AnalyzeAction } from "../AnalyzeAction";
+import { DevicePathway } from "./DevicePathway";
+import { EngineRoom } from "./EngineRoom";
+import { HowItWorks } from "./HowItWorks";
+import { ProveItsReal } from "./ProveItsReal";
 import { Drawer } from "../ui";
 import { ChapterHead } from "./Chapter";
 import { Reveal } from "./Reveal";
@@ -268,6 +273,12 @@ export function Dossier() {
           </Reveal>
         </div>
 
+        <DevicePathway />
+        <HowItWorks />
+        <div className="mt-6">
+          <EngineRoom />
+        </div>
+
         {/* Extracted evidence */}
         <Reveal className="mt-16">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -304,12 +315,29 @@ export function Dossier() {
                           {c && (
                             <button
                               type="button"
-                              onClick={() => setViewing({ filename: c.filename, page: c.verifiedPage ?? c.claimedPage })}
+                              onClick={() =>
+                                inspector.open({
+                                  kind: "quote",
+                                  quote: {
+                                    origin: isSeed ? "Demo seed" : "AI proposal",
+                                    context: `${f.field}: ${f.value}`,
+                                    quote: c.quote,
+                                    proposedFilename: c.filename,
+                                    proposedPage: c.claimedPage,
+                                    check: c.check,
+                                    verifiedPage: c.verifiedPage,
+                                    workspaceId: state.workspaceId,
+                                  },
+                                })
+                              }
                               className="press mt-1 block text-left text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-ion"
                             >
                               <span className="italic text-porcelain/75">“{c.quote}”</span>{" "}
                               {c.verifiedPage !== null ? (
-                                <span className="whitespace-nowrap text-ion">✓ p.{c.verifiedPage}</span>
+                                <span className="whitespace-nowrap text-ion">
+                                  ✓ p.{c.verifiedPage}
+                                  {c.check === "verified_other_page" && <span className="text-lime"> (AI said p.{c.claimedPage ?? "?"})</span>}
+                                </span>
                               ) : (
                                 <span className="text-crimson">✕ quote not found in the text — do not rely on it</span>
                               )}
@@ -329,6 +357,8 @@ export function Dossier() {
             </button>
           )}
         </Reveal>
+
+        <ProveItsReal />
       </div>
 
       <Drawer open={Boolean(viewing)} onClose={() => setViewing(null)} eyebrow="Extracted text" title={viewing?.filename ?? ""}>

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { applyEvidenceRules, MappingOutputSchema, type MappingOutput, type MappingResult, type MappingRow } from "../mapping";
 import type { RequirementSet } from "../requirements";
 import type { UploadedDocument } from "../uploads";
-import { AnalysisError, buildDocumentsPrompt, generateStructured, UNTRUSTED_TEXT_RULES } from "./gemini-common";
+import { AnalysisError, buildDocumentsPrompt, generateStructured, UNTRUSTED_TEXT_RULES, type AiTrace } from "./gemini-common";
 import { checkCitation } from "./verify-quotes";
 
 const SYSTEM_INSTRUCTION = `You help regulatory affairs and quality staff check whether uploaded documentation contains the evidence each listed requirement expects. A human makes every final decision.
@@ -63,15 +63,17 @@ export async function mapRequirements(
   workspaceId: string,
   set: RequirementSet,
   docs: UploadedDocument[],
+  runId: string = randomUUID().slice(0, 8),
+  trace?: AiTrace,
 ): Promise<MappingResult> {
   if (docs.length === 0) {
     throw new AnalysisError("no_documents", 400, "No uploaded documents with extractable text in this workspace.");
   }
   const { prompt } = buildDocumentsPrompt(docs);
   const full = `<requirements>\n${requirementsBlock(set)}\n</requirements>\n\n${prompt}`;
-  const { data, model } = await generateStructured(MappingOutputSchema, SYSTEM_INSTRUCTION, full);
+  const { data, model } = await generateStructured(MappingOutputSchema, SYSTEM_INSTRUCTION, full, trace);
   return {
-    runId: randomUUID().slice(0, 8),
+    runId,
     workspaceId,
     requirementSetId: set.id,
     source: "gemini",

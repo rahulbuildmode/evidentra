@@ -1,5 +1,4 @@
 import type { ModelOutput } from "../analysis";
-import type { MappingOutput } from "../mapping";
 
 /**
  * FICTIONAL demo seed for fixtures/demo-dossier. Written by hand, not AI output.
@@ -56,63 +55,6 @@ export const DEMO_ANALYSIS: ModelOutput = {
       topic: "Biocompatibility of patient-contacting materials",
       explanation: "No list of patient-contacting materials or biocompatibility evaluation was found in the uploaded documents.",
       confidence: "high",
-    },
-  ],
-};
-
-export const DEMO_MAPPING: MappingOutput = {
-  rows: [
-    {
-      requirement_id: "DEMO-01",
-      status: "found",
-      rationale: "The device master file summary names the device and gives a model number.",
-      next_action: "Confirm the model number is the one intended for the submission (see DEMO-04).",
-      citations: [c(DMF, 1, "Device name: AuraPulse Fingertip Pulse Oximeter"), c(DMF, 1, "Model number: AP-200A")],
-    },
-    {
-      requirement_id: "DEMO-02",
-      status: "found",
-      rationale: "An intended-use statement naming adults as the population appears in the device master file summary.",
-      next_action: "Check the same wording is used on the label.",
-      citations: [c(DMF, 1, "Intended use: Spot-check, non-invasive measurement of functional oxygen saturation (SpO2) and pulse rate in adults.")],
-    },
-    {
-      requirement_id: "DEMO-03",
-      status: "found",
-      rationale: "Measurement range and accuracy are stated in the product specification.",
-      next_action: "Confirm the specifications against test reports.",
-      citations: [c(DMF, 2, "SpO2 measurement range: 70% to 100%"), c(DMF, 2, "SpO2 accuracy: ±2% (70% to 100%)")],
-    },
-    {
-      requirement_id: "DEMO-04",
-      status: "conflicting",
-      rationale: "The instructions for use give a different model number (AP-2000A) from the device master file summary (AP-200A).",
-      next_action: "Confirm the correct model number with engineering and update the inconsistent document.",
-      citations: [c(DMF, 1, "Model number: AP-200A"), c(IFU, 1, "Model: AP-2000A")],
-    },
-    {
-      requirement_id: "DEMO-05",
-      status: "partial",
-      rationale: "Hazards and the analysis technique are listed, but the summary states that risk controls and residual-risk evaluation are not yet completed.",
-      next_action: "Obtain the completed risk control and residual-risk evaluation before review.",
-      citations: [
-        c(RMS, 1, "Hazard 1: Inaccurate SpO2 reading due to low perfusion or patient movement."),
-        c(RMS, 1, "Risk control measures and residual risk evaluation: to be completed before design freeze."),
-      ],
-    },
-    {
-      requirement_id: "DEMO-06",
-      status: "missing",
-      rationale: "No biocompatibility evaluation or list of patient-contacting materials was found in the uploaded text.",
-      next_action: "Ask the team whether a biocompatibility evaluation exists and add it to the dossier, or document why it is not applicable.",
-      citations: [],
-    },
-    {
-      requirement_id: "DEMO-07",
-      status: "found",
-      rationale: "A sample QMS certificate naming the manufacturer states a validity date in the future.",
-      next_action: "Verify the certificate with the issuing body (this demo certificate is fictional).",
-      citations: [c(QMS, 1, "Certificate holder: Fictional MedTech Pvt Ltd"), c(QMS, 1, "Valid until: 30 June 2027")],
     },
   ],
 };

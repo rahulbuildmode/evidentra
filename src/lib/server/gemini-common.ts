@@ -1,6 +1,7 @@
 import { ApiError, ThinkingLevel } from "@google/genai";
 import { z } from "zod";
 import type { AnalysisErrorCode, AnalysisResult } from "../analysis";
+import type { AiAttempt } from "../run";
 import { geminiModel, getGeminiClient, isGeminiConfigured } from "../gemini";
 import type { UploadedDocument } from "../uploads";
 
@@ -58,7 +59,7 @@ export function buildDocumentsPrompt(docs: UploadedDocument[]) {
   return { prompt: parts.join("\n\n"), sent };
 }
 
-function toApiError(err: unknown): AnalysisError {
+export function toApiError(err: unknown): AnalysisError {
   if (err instanceof ApiError) {
     const msg = err.message || "";
     if (err.status === 400 && /API[_ ]KEY|api key/i.test(msg))
@@ -131,49 +132,99 @@ async function withOverloadRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Optional trace filled in as the call runs: one entry per network request, including retries. */
+export interface AiTrace {
+  stage: AiAttempt["stage"];
+  attempts: AiAttempt[];
+  model?: string;
+  output?: unknown;
+  /** Called when a network request is sent and when it finishes (for live progress). */
+  onRequest?: (attempt: number) => void;
+  onAttempt?: (a: AiAttempt) => void;
+}
+
 /** Ask Gemini for JSON matching `schema`. Retries once on unusable output; throws AnalysisError. */
 export async function generateStructured<S extends z.ZodType>(
   schema: S,
   systemInstruction: string,
   prompt: string,
+  trace?: AiTrace,
 ): Promise<{ data: z.infer<S>; model: string; usage: AnalysisResult["usage"] }> {
   if (!isGeminiConfigured()) {
     throw new AnalysisError("missing_key", 503, "AI analysis is unavailable: GEMINI_API_KEY is not set on the server.");
   }
   const model = geminiModel();
+  if (trace) trace.model = model;
   const ai = getGeminiClient();
   const jsonSchema = stripKeys(z.toJSONSchema(schema));
+  let attemptNo = 0;
+  const record = (a: Omit<AiAttempt, "stage" | "attempt">) => {
+    if (!trace) return;
+    const full = { stage: trace.stage, attempt: attemptNo, ...a };
+    trace.attempts.push(full);
+    trace.onAttempt?.(full);
+  };
+  /** One real network request, timed with a monotonic clock. */
+  const request = async () => {
+    attemptNo++;
+    trace?.onRequest?.(attemptNo);
+    const startedAt = new Date().toISOString();
+    const t0 = performance.now();
+    try {
+      const r = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseJsonSchema: jsonSchema,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          temperature: 0,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+      return { r, startedAt, ms: Math.round(performance.now() - t0) };
+    } catch (err) {
+      const status = err instanceof ApiError ? err.status : null;
+      record({
+        startedAt,
+        durationMs: Math.round(performance.now() - t0),
+        outcome: status === 503 ? "overloaded_retry" : "error",
+        httpStatus: status,
+        note: toApiError(err).message,
+        promptTokens: null,
+        outputTokens: null,
+      });
+      throw err;
+    }
+  };
 
   let lastProblem = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    let response;
+    let call: Awaited<ReturnType<typeof request>>;
     try {
-      response = await withOverloadRetry(() =>
-        ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseJsonSchema: jsonSchema,
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
-            temperature: 0,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-          },
-        }),
-      );
+      call = await withOverloadRetry(request);
     } catch (err) {
       console.error("[gemini] call failed:", err instanceof Error ? err.message.slice(0, 300) : err);
       throw toApiError(err);
     }
 
+    const { r: response, startedAt, ms } = call;
+    const usage = {
+      promptTokens: response.usageMetadata?.promptTokenCount ?? null,
+      outputTokens: response.usageMetadata?.candidatesTokenCount ?? null,
+    };
+    const ok = (outcome: AiAttempt["outcome"], note: string | null) =>
+      record({ startedAt, durationMs: ms, outcome, httpStatus: 200, note, ...usage });
     const finish = response.candidates?.[0]?.finishReason;
     if (response.promptFeedback?.blockReason || finish === "SAFETY" || finish === "PROHIBITED_CONTENT") {
+      ok("error", "Blocked by the model's safety filters");
       throw new AnalysisError("blocked", 502, "Gemini declined to analyse this content. No results were produced.");
     }
     const text = response.text;
     if (!text) {
       lastProblem = `empty response (finish reason: ${finish ?? "unknown"})`;
+      ok("unusable_output", lastProblem);
       continue;
     }
     let json: unknown;
@@ -181,21 +232,18 @@ export async function generateStructured<S extends z.ZodType>(
       json = JSON.parse(text);
     } catch {
       lastProblem = finish === "MAX_TOKENS" ? "output was cut off (too long)" : "response was not valid JSON";
+      ok("unusable_output", lastProblem);
       continue;
     }
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
       lastProblem = `response did not match the expected structure (${parsed.error.issues[0]?.message ?? "invalid"})`;
+      ok("unusable_output", lastProblem);
       continue;
     }
-    return {
-      data: parsed.data,
-      model,
-      usage: {
-        promptTokens: response.usageMetadata?.promptTokenCount ?? null,
-        outputTokens: response.usageMetadata?.candidatesTokenCount ?? null,
-      },
-    };
+    ok("ok", null);
+    if (trace) trace.output = parsed.data;
+    return { data: parsed.data, model, usage };
   }
   throw new AnalysisError("malformed_output", 502, `Gemini returned unusable output twice: ${lastProblem}. Nothing was saved.`);
 }
