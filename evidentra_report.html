@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Evidentra — Secondary Research Report</title>
+<style>
+@page{size:A4;margin:0}
+*{box-sizing:border-box}
+:root{--ink:#1c2430;--mut:#5b6573;--acc:#1f4e79;--line:#cfd6df;--bg:#eef2f7;--warn:#9a5b00}
+body{margin:0;font:8.4pt/1.3 "Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink)}
+.page{width:210mm;height:297mm;padding:9mm 10mm 8mm;overflow:hidden;page-break-after:always;position:relative}
+.page:last-child{page-break-after:auto}
+h1{font-size:15pt;margin:0;color:var(--acc);letter-spacing:-.2px}
+.sub{color:var(--mut);font-size:7pt;margin:1px 0 4px;border-bottom:1.5px solid var(--acc);padding-bottom:3px}
+h2{font-size:9.6pt;margin:5px 0 2px;color:var(--acc);border-bottom:.6px solid var(--line);padding-bottom:1px;text-transform:none}
+p{margin:2px 0}
+a{color:#0b5cad;text-decoration:none}
+table{border-collapse:collapse;width:100%;margin:2px 0 3px;font-size:7.4pt;line-height:1.25}
+th{background:var(--acc);color:#fff;text-align:left;padding:2px 3px;font-weight:600}
+td{border:.5px solid var(--line);padding:2px 3px;vertical-align:top}
+tr:nth-child(even) td{background:#f6f8fb}
+.box{background:var(--bg);border-left:3px solid var(--acc);padding:3px 5px;margin:3px 0}
+.rec{font-weight:700;color:var(--warn)}
+ul{margin:1px 0 1px 11px;padding:0}li{margin:0}
+.sm{font-size:7pt;color:var(--mut)}
+.tag{display:inline-block;padding:0 3px;border-radius:2px;font-size:6pt;font-weight:700;color:#fff}
+.P{background:#2e7d32}.S{background:#8a6d00}.A{background:#6a1b9a}
+.foot{position:absolute;bottom:4mm;left:10mm;right:10mm;font-size:6pt;color:var(--mut);border-top:.5px solid var(--line);padding-top:2px;display:flex;justify-content:space-between}
+.two{display:flex;gap:6px}.two>div{flex:1}
+</style></head><body>
+
+<!-- ============ PAGE 1 ============ -->
+<div class="page">
+<h1>Evidentra — Secondary Research Report</h1>
+<div class="sub">Prepared 21 Oct 2026 · Desk research only (web sources, no interviews) — <b>secondary research, not customer validation</b> · Tags: <span class="tag P">P</span> primary/government · <span class="tag S">S</span> secondary reporting/vendor/commercial · <span class="tag A">A</span> assumption (ours)</div>
+
+<h2>1–2. Executive summary and recommendation</h2>
+<div class="box"><span class="rec">Recommendation: REVISE (do not stop; do not build the full product yet).</span>
+Evidentra targets a real, documented regulatory environment: India licenses nearly all device classes on dossier-style submissions, a parliamentary committee reports repeated query rounds and opacity, and the government is drafting faster statutory timelines. But <b>no source found measures how often CDSCO queries or delays are caused by missing or inconsistent documents</b>, no source gives a verified count of Indian licensees or regulatory consultants, and willingness to pay, time saved and accuracy are all unproven. Revise the plan to: (a) lead with <b>regulatory consultants / small RA firms</b> (repeat submissions across clients) rather than single-product startups; (b) scope v1 to <b>CDSCO Class B and C manufacturing licence dossiers</b>; (c) run the cheap tests on page 3 before any engineering spend. The market model below is an <b>assumption-driven range (base ≈ ₹63 Cr TAM, ₹19 Cr SAM, ₹1.1 Cr 3-yr SOM)</b>, not a forecast.</div>
+
+<h2>3. Problem validation</h2>
+<table><tr><th style="width:21%">Claim</th><th style="width:47%">Evidence (date · type)</th><th style="width:8%">Confidence</th><th>Unknowns</th></tr>
+<tr><td>Applicants face repeated clarification rounds and slow, opaque licensing</td><td>Parliamentary Standing Committee on Health &amp; FW (reported 13 Mar 2025) criticised "multiple rounds of queries", lack of transparency, and urged a single-query policy and 45-day conditional approvals <span class="tag S">S</span> <a href="https://medicaldialogues.in/news/industry/parliamentary-panel-slams-cdsco-for-slow-drug-approvals-calls-for-conditional-licensing-in-45-days-144885">medicaldialogues.in</a>. Business Standard coverage could not be opened (HTTP 403); committee report itself not read.</td><td>Medium</td><td>No counts of queries, pendency or processing times in any source read. Report text unverified.</td></tr>
+<tr><td>Regulator and industry see timelines as a problem worth fixing</td><td>Draft MDR amendment reported 29 Jun 2026: Class B 140→115 days; Class C/D 105→90 days; stage-wise timelines <span class="tag S">S</span> <a href="https://www.biospectrumindia.com/news/16/28038/government-proposes-amendment-to-medical-devices-rules-2017.html">biospectrumindia.com</a>. A law-firm summary gives a different Class B figure (95 days) <span class="tag S">S</span> <a href="https://chambers.com/articles/medical-devices-rules-faster-manufacturing-licence-approvals">chambers.com</a> — unresolved; gazette text not checked. Draft, not in force.</td><td>Medium</td><td>Whether notified; statutory timelines ≠ actual elapsed time, and say nothing about <i>cause</i>.</td></tr>
+<tr><td>CDSCO dossiers are document-heavy and multi-part</td><td>Applications are online (cdscomdonline.gov.in / NSWS); document checklist is set per form on the portal; Plant Master File content is prescribed (Fourth Schedule, Appx I); Essential Principles apply to all classes; QMS per Fifth Schedule <span class="tag P">P</span> <a href="https://cdsco.gov.in/opencms/export/sites/CDSCO_WEB/Pdf-documents/MDfAq24.pdf">CDSCO FAQ, Doc CDSCO/FAQ/MD/01/2024</a>. Class C/D manufacturing: MD-7/MD-8 → MD-9/MD-10 on SUGAM <span class="tag P">P</span> <a href="https://cdsco.gov.in/opencms/opencms/en/Medical-Device-Diagnostics/Medical-Device-Diagnostics/">CDSCO MD page</a> (page undated; contains 2021 items).</td><td>High (that requirements exist)</td><td>How much effort/cost applicants spend; which checklist items fail most.</td></tr>
+<tr><td>Missing or inconsistent evidence causes rework in comparable regimes (proxy only)</td><td>EU: in Team-NB surveys, notified bodies running completeness checks reported ~80% of technical documentation missing about half the needed information (2023) — share of <i>NB responses</i>, not of applications <span class="tag S">S</span> <a href="https://www.gmp-compliance.org/gmp-news/survey-results-from-team-notified-body-on-the-mdr-and-ivdr">gmp-compliance.org</a>. US: FDA refuse-to-accept ~60% in 2013; "~one-third" recently per blogs <span class="tag S">S</span> <a href="https://www.mddionline.com/regulatory-quality/nearly-60-of-firms-with-510-k-submissions-got-fda-s-refuse-to-accept-letters-in-2013">mddionline.com</a>.</td><td>Low for India</td><td><b>No India-specific data found.</b> Different regimes, formats and gatekeepers; not transferable.</td></tr>
+<tr><td>Regulator is open to AI pre-screening</td><td>Committee recommended a "time-bound, AI-assisted online licensing process" and AI-based pre-screening <span class="tag S">S</span> (medicaldialogues.in, above).</td><td>Low–Med</td><td>Could be opportunity (aligned) or threat (CDSCO builds it in-portal).</td></tr></table>
+
+<h2>4. Indian regulatory landscape and evidence of customer pain</h2>
+<ul>
+<li><b>Legal base:</b> Medical Devices Rules, 2017 (G.S.R. 78(E), 31 Jan 2017) under the Drugs &amp; Cosmetics Act; four risk classes A–D <span class="tag P">P</span> <a href="https://cdsco.gov.in/opencms/opencms/en/Acts-and-rules/Medical-Devices-Rules">CDSCO MDR page</a>. That page lists 34 notifications; consolidated text dated 15 Feb 2023, latest listed entry 2 Jun 2023 (G.S.R. 409(E)). <b>Later changes (below) are known only from secondary reports — current consolidated text must be verified before product logic is built.</b></li>
+<li><b>Scope:</b> All devices fall under licensing except Class A non-sterile, non-measuring, which are exempt but need registration (G.S.R. 777(E), 14 Oct 2022 <span class="tag P">P</span> CDSCO MDR page above; 31 Oct 2025 notice <span class="tag S">S</span> <a href="https://morulaa.com/news-india-cdsco-medical-device-licensing-2025/">morulaa.com</a>). Class C/D licensing extended to previously non-notified devices from 1 Oct 2023 <span class="tag S">S</span> <a href="https://ssrana.in/articles/class-c-and-d-non-notified-medical-devices-to-require-licensing-under-medical-devices-rules-2017-from-october-1-2023/">ssrana.in</a>.</li>
+<li><b>Process change, Oct 2025:</b> reported CDSCO directive (23 Oct 2025) requires central classification of Class A/B/IVD devices before State authorities grant licences; SUGAM classification module live 27 Nov 2025 (devices) <span class="tag S">S</span> morulaa.com (above). Class A/B licences: State authority (MD-5) after notified-body audit; C/D: Central authority (MD-9) <span class="tag S">S</span> <a href="https://www.altacit.com/medical-device-regulation-in-india-cdsco-compliance-guide-2026/">altacit.com</a>.</li>
+<li><b>Pain evidence (qualitative):</b> BCG/AiMeD report (May 2026) lists sequential approvals, high certification costs and "longer turnaround for Class C validation due to high dependence on CDSCO" as MSME constraints <span class="tag S">S</span> <a href="https://web-assets.bcg.com/42/ad/8c3b26154738815c0e45de5b4274/poised-for-takeoff-medtech-in-india.pdf">BCG PDF</a>. The 2025 committee reported manufacturers shifting to Vietnam/Malaysia (medicaldialogues.in). <b>Not shown:</b> that documentation errors, rather than inspection backlog or staffing, drive these delays.</li>
+<li><b>Fees (context):</b> reported govt fees Class A/B ₹5,000/site + ₹500/device; Class C/D ₹50,000/site + ₹1,000/device <span class="tag S">S</span> <a href="https://www.agileregulatory.com/blogs/cdsco-registration-fees-in-india-in-2026">agileregulatory.com</a> (sources conflict; verify on CDSCO).</li>
+</ul>
+<h2>Method and source integrity</h2>
+<p class="sm" style="font-size:7.2pt;color:#1c2430">Sources were fetched 21 Oct 2026. Primary = CDSCO pages/FAQ read directly; secondary = news, law-firm, consultant and vendor pages (self-interested; unaudited). Not obtained: the committee report itself, Business Standard (HTTP 403), official licensee counts, any CDSCO query/pendency statistics, and the amended consolidated MDR text after Jun 2023. The CDSCO "Medical Device &amp; Diagnostics" page is undated and appears partly out of date. No figure here is invented; unsourced numbers are tagged <span class="tag A">A</span>. General regulatory delay is not treated as proof of documentation-caused delay.</p>
+<div class="foot"><span>Evidentra — Secondary Research · 21 Oct 2026 · Not customer validation</span><span>Page 1 / 3</span></div>
+</div>
+
+<!-- ============ PAGE 2 ============ -->
+<div class="page">
+<h2 style="margin-top:0">5. Customer and behavioural evidence</h2>
+<table><tr><th style="width:16%">Segment</th><th style="width:44%">What the evidence says</th><th>Fit for Evidentra (our judgement, unvalidated)</th></tr>
+<tr><td>Established manufacturers</td><td>Likely have in-house RA/QA; large firms already buy QMS/RIM tools abroad (Rimsys claims 6 of top 12 global MedTech <span class="tag S">S</span> <a href="https://www.rimsys.io/">rimsys.io</a>). India-specific buying behaviour not found.</td><td>Low volume of new-India submissions per firm; long enterprise cycles. Later segment.</td></tr>
+<tr><td>Startups / MSMEs</td><td>BCG: MSMEs face "high certification costs", capital constraints <span class="tag S">S</span>; CDSCO runs a startup help cell (PRO) <span class="tag P">P</span> <a href="https://cdsco.gov.in/opencms/opencms/en/PRO/">cdsco.gov.in/PRO</a>. ~17% of 150+ incubated MedTech startups expected to reach commercialisation (BCG).</td><td>Acute pain, but 1–3 submissions/yr, low budget, may default to a consultant. Poor first payer.</td></tr>
+<tr><td>Regulatory consultants / agents</td><td>Active market: Morulaa claims 500+ manufacturers served <span class="tag S">S</span> <a href="https://morulaa.com/">morulaa.com</a>; Freyr lists Indian authorised-agent services <span class="tag S">S</span> <a href="https://www.freyrsolutions.com/">freyrsolutions.com</a>; Pure Global acts as Authorized Indian Agent <span class="tag S">S</span>. CDSCO FAQ: only an authorised company person may query application status — consultants file but cannot track on their own <span class="tag P">P</span> (FAQ above, Q11). Self-reported claims, unaudited.</td><td><b>Most promising first payer (hypothesis):</b> repeat dossiers, billable-hour savings, multi-client reuse, faster purchasing. Risk: they may fear disintermediation.</td></tr></table>
+<p class="sm"><b>Behavioural gaps:</b> no survey, interview or forum data on how Indian RA teams compile dossiers (Excel/Drive checklists vs software), tool adoption, or consultant fees was found. Treat all behaviour as unobserved until the interviews on page 3.</p>
+
+<h2>6. Competitor comparison <span class="sm">(vendor pages read 21 Oct 2026; "not stated" ≠ "absent")</span></h2>
+<table><tr><th style="width:11%">Company</th><th style="width:30%">Capabilities (as stated by vendor)</th><th style="width:19%">Pricing (public)</th><th style="width:14%">Target</th><th>Potential gap to test</th></tr>
+<tr><td><a href="https://www.pureglobal.com/markets/india">Pure Global</a></td><td>AI-assisted dossier prep; India Authorized Agent; CDSCO registration support; free AI tools (RMF review, change impact)</td><td>From $2,000/yr (Class A), $3,000/yr (B–D) per device, excl. govt fees; 3-yr term (<a href="https://www.pureglobal.com/services/pricing">pricing</a>)</td><td>Foreign &amp; Indian makers needing agent</td><td>Service-bundled; evidence-to-clause traceability and cross-document checks not stated</td></tr>
+<tr><td><a href="https://www.greenlight.guru/quality-pricing">Greenlight Guru</a></td><td>Device-specific eQMS: doc control, change mgmt, AI search/summaries</td><td>eQMS "start at $12,000/yr"; implementation extra</td><td>Medical-device cos, early to global</td><td>CDSCO and submission-mapping not stated</td></tr>
+<tr><td><a href="https://www.qualio.com/pricing">Qualio</a></td><td>eQMS; AI gap analysis; Copilot drafting/review; regulatory monitoring (Growth tier)</td><td>Quote only</td><td>Life-science cos</td><td>CDSCO-specific clause mapping not stated</td></tr>
+<tr><td><a href="https://www.rimsys.io/pricing">Rimsys</a></td><td>RIM: submission planning/tracking, 90+ country source monitoring, impact assessments, AI content support</td><td>Quote only; "no per-user fees"</td><td>Global medtech</td><td>India/CDSCO not stated; enterprise price likely high for MSMEs (inference)</td></tr>
+<tr><td><a href="https://www.regdesk.co/">RegDesk</a></td><td>RIM; AI forms/submission generator; automated gap analysis; updates from 120 markets</td><td>Demo only</td><td>Global scaling cos</td><td>CDSCO depth unverified; test directly</td></tr>
+<tr><td><a href="https://www.cruxi.ai/pages/subpages/regulatory/510k/resources/pricing.html">Cruxi</a></td><td>FDA 510(k) AI workflow, RTA check; other regimes "in beta"</td><td>$1,000 per full 510(k) workflow; $500/mo membership (50 credits)</td><td>Cos, consultants, agencies</td><td>Not India; useful price anchor for per-submission model</td></tr>
+<tr><td>MasterControl</td><td>Life-science QMS; named-user licences</td><td>Quote only</td><td>Pharma/med-device</td><td>Submission mapping not stated (<a href="https://www.mastercontrol.com/pricing/">pricing</a>)</td></tr>
+<tr><td>Consultants (Morulaa, Freyr)</td><td>Technical files, dossier preparation/review, CDSCO/SUGAM submission</td><td>Not stated</td><td>Manufacturers</td><td>Human review is the incumbent; also potential customers/channel</td></tr></table>
+<p class="sm">Also unquantified: general-purpose LLM chat tools and spreadsheets (the likely real incumbent). Third-party price estimates (e.g. Greenlight median ~$44k, Capterra listings) were seen but not used: unverifiable.</p>
+
+<h2>7. Market evidence and TAM / SAM / SOM</h2>
+<p><b>Evidence:</b> India device market ≈ US$15.2 bn FY25 → $50.1 bn FY30, imports $8.6 bn vs exports $4.1 bn <span class="tag S">S</span> <a href="https://ianslive.in/indias-medical-devices-market-likely-to-hit-501-bn-by-2030--20260212160702">ianslive.in</a> (Rubix); BCG puts it at ~$16–20 bn. The same coverage cites <b>~800 manufacturers</b> (secondary, unaudited, not defined as licensees). <b>No official licensee count or consultant count was found</b> (Lok Sabha/CDSCO searches returned none) — counts below beyond 800 are <span class="tag A">A</span> assumptions. ACVs are set directly in ₹; anchors at an assumed ₹88/US$: Cruxi $1,000/submission ≈ ₹0.9 L; Pure Global $2–3k/device-yr ≈ ₹1.8–2.6 L.</p>
+<table><tr><th style="width:21%">Layer / formula</th><th>Low</th><th>Base</th><th>High</th><th style="width:34%">Assumptions <span class="tag A">A</span></th></tr>
+<tr><td>Firms: mfrs N<sub>m</sub> / consultants N<sub>c</sub></td><td>800 / 300</td><td>3,000 / 600</td><td>6,000 / 1,200</td><td>Low = reported ~800; base/high guess that licensing of all B–D devices widens the base. Consultants unknown.</td></tr>
+<tr><td>ACV (₹/yr): mfr / consultant</td><td>0.6 L / 1.2 L</td><td>1.5 L / 3 L</td><td>3 L / 6 L</td><td>Willingness to pay unvalidated. 1 L = ₹1 lakh.</td></tr>
+<tr><td><b>TAM</b> = N<sub>m</sub>·ACV<sub>m</sub> + N<sub>c</sub>·ACV<sub>c</sub></td><td>₹8.4 Cr</td><td>₹63 Cr</td><td>₹252 Cr</td><td>Base: 3,000×1.5L=45 Cr; 600×3L=18 Cr.</td></tr>
+<tr><td><b>SAM</b> = TAM × s</td><td>15% → ₹1.26 Cr</td><td>30% → ₹18.9 Cr</td><td>45% → ₹113 Cr</td><td>s = Class B–D, digital, English dossiers, ≥1 filing/yr, SaaS-willing.</td></tr>
+<tr><td><b>SOM (3 yr)</b> = SAM × r</td><td>2% → ₹0.025 Cr</td><td>6% → ₹1.13 Cr</td><td>12% → ₹13.6 Cr</td><td>r = share won by a 1–2 person GTM. Base ≈ 54 mfrs + 11 consultants.</td></tr></table>
+<h2>8. Opportunity chart</h2>
+<svg viewBox="0 0 760 150" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif" font-size="9">
+<g stroke="#cfd6df" stroke-width=".6"><line x1="110" y1="12" x2="110" y2="112"/><line x1="224" y1="12" x2="224" y2="112"/><line x1="338" y1="12" x2="338" y2="112"/><line x1="452" y1="12" x2="452" y2="112"/><line x1="566" y1="12" x2="566" y2="112"/><line x1="680" y1="12" x2="680" y2="112"/></g>
+<g fill="#5b6573" text-anchor="middle"><text x="110" y="124">₹0.01 Cr</text><text x="224" y="124">0.1</text><text x="338" y="124">1</text><text x="452" y="124">10</text><text x="566" y="124">100</text><text x="680" y="124">1,000 Cr</text></g>
+<g font-weight="700" fill="#1c2430"><text x="4" y="38">TAM</text><text x="4" y="68">SAM</text><text x="4" y="98">SOM (yr 3)</text></g>
+<!-- x = 110 + 114*(log10(v)+2) -->
+<rect x="443" y="29" width="168" height="13" fill="#9db8d6"/><circle cx="543" cy="35.5" r="4.5" fill="#1f4e79"/>
+<rect x="349" y="59" width="223" height="13" fill="#9db8d6"/><circle cx="484" cy="65.5" r="4.5" fill="#1f4e79"/>
+<rect x="155" y="89" width="312" height="13" fill="#9db8d6"/><circle cx="344" cy="95.5" r="4.5" fill="#1f4e79"/>
+<g font-size="8" fill="#1c2430"><text x="619" y="39">₹8.4 – 252 Cr (base 63)</text><text x="580" y="69">₹1.3 – 113 Cr (base 18.9)</text><text x="475" y="99">₹0.025 – 13.6 Cr (base 1.13)</text></g>
+<text x="380" y="144" text-anchor="middle" fill="#5b6573" font-size="8">Log scale, ₹ crore per year. Bar = low→high scenario; dot = base. Spread is ~30× (TAM) to ~500× (SOM): the uncertainty is the finding. All inputs are assumptions (table above).</text>
+</svg>
+<div class="foot"><span>Evidentra — Secondary Research · 21 Oct 2026 · Not customer validation</span><span>Page 2 / 3</span></div>
+</div>
+
+<!-- ============ PAGE 3 ============ -->
+<div class="page">
+<h2 style="margin-top:0">9. Business model and pricing hypotheses <span class="sm">(all ₹ figures <span class="tag A">A</span>, untested)</span></h2>
+<table><tr><th style="width:17%">Model</th><th style="width:30%">Hypothesis</th><th style="width:27%">Pro</th><th>Con / evidence</th></tr>
+<tr><td>Per-submission pack</td><td>₹15–40k per dossier check (Class B–C); one-off</td><td>Matches how startups buy; anchored by Cruxi $1,000/510(k) and consultant project fees; low commitment</td><td>Lumpy revenue; 1–3 filings/yr per mfr limits ARPA</td></tr>
+<tr><td>Consultant subscription</td><td>₹3–6 L/yr, N dossiers + client workspaces</td><td>Repeat use; fits multi-client work; closest to Cruxi agency/membership structure</td><td>Consultant fee levels unknown; disintermediation worry</td></tr>
+<tr><td>Manufacturer subscription</td><td>₹0.6–3 L/yr incl. change monitoring</td><td>Recurring; ties to post-licence changes and retention</td><td>Competes with eQMS suites ($12k+/yr ≈ ₹10 L+) and Pure Global ($2–3k/device-yr)</td></tr></table>
+<p><b>Lean:</b> sell per-submission packs to consultants first (credits, Cruxi-style), convert heavy users to a seat/client-based plan. Govt fees (≈₹5k–50k+/site) are a reference point for what applicants already spend per filing; whether they cap willingness to pay is unknown.</p>
+
+<h2>10. Product differentiation and feasibility</h2>
+<table><tr><th style="width:19%">Feature</th><th style="width:40%">Differentiation (evidence-based view)</th><th>Feasibility / caveat</th></tr>
+<tr><td>Requirement → evidence mapping</td><td>Competitors advertise gap analysis and forms generation (Qualio, RegDesk) but CDSCO form-level mapping is not stated by any vendor read.</td><td>Needs a maintained CDSCO requirement library (checklists live in the portal, per FAQ). Feasible; upkeep is the cost.</td></tr>
+<tr><td>Page-level source traceability</td><td>Not stated by competitors read; unverified absence. Key trust feature for regulated users.</td><td>Technically feasible (OCR + page anchors); accuracy on scans/tables unproven.</td></tr>
+<tr><td>Cross-document contradiction detection</td><td>Not stated by competitors; strongest wedge if error rates are material.</td><td>Hardest: false positives will kill trust. <b>Demo ≠ production regulatory product</b>; needs labelled test sets.</td></tr>
+<tr><td>Regulatory change monitoring</td><td>Already offered by Rimsys, RegDesk, Qualio (Growth). Table stakes, not a wedge.</td><td>Feasible for CDSCO notices; thin value alone.</td></tr></table>
+<p class="sm">Legal/regulatory note: CDSCO FAQ states its replies are for public awareness, not professional/legal use — Evidentra must cite official text, not paraphrase it as authority.</p>
+
+<h2>11. Major risks and five assumptions to validate</h2>
+<div class="two"><div><b>Risks:</b><ul><li>Cause of delays is mostly inspection/QMS audit, not dossier quality</li><li>Regulatory text drifts (draft 2026 timelines; Oct 2025 workflow change) → stale logic</li><li>Wrong-answer liability; users over-trust output</li><li>Consultants see tool as threat; CDSCO builds AI pre-screen itself</li><li>Small, price-sensitive market (₹19 Cr base SAM)</li></ul></div>
+<div><b>Assumptions:</b><ol style="margin:1px 0 1px 12px;padding:0"><li>A1 Documentation gaps cause a material share of CDSCO queries</li><li>A2 Consultants will pay for dossier QA</li><li>A3 Tool finds real gaps/contradictions at useful precision</li><li>A4 ≥₹15k/pack or ≥₹3 L/yr is acceptable</li><li>A5 Firm/consultant counts support SAM</li></ol></div></div>
+
+<h2>12. Validation experiments</h2>
+<table><tr><th style="width:16%">Assumption</th><th style="width:44%">Cheapest test</th><th>Measurable pass criterion</th></tr>
+<tr><td>A1 Gaps drive queries</td><td>Interview 15 RA leads/consultants; collect 10 anonymised CDSCO query letters and tag cause</td><td>≥50% of query items traceable to missing/inconsistent documents</td></tr>
+<tr><td>A2 Demand</td><td>Landing page + paid pilot offer to 40 consultants; 5 pre-sold audits</td><td>≥3 paid pilots at ≥₹10k; ≥20% reply to outreach</td></tr>
+<tr><td>A3 Accuracy</td><td>Manual-first: run 10 real dossiers (with consent) through a prototype; two experts label gaps</td><td>Precision ≥85%, recall ≥70% vs expert baseline; ≤1 critical false-negative per 10</td></tr>
+<tr><td>A4 Willingness to pay</td><td>Van Westendorp + 3 price-point quotes in interviews</td><td>Median acceptable price ≥₹15k/pack or ≥₹3 L/yr</td></tr>
+<tr><td>A5 Counts</td><td>Request licence list (RTI to CDSCO/State FDAs; SUGAM public data); scrape consultant directories</td><td>Verified licensees ≥1,500 Class B–D firms; ≥300 consultancies</td></tr></table>
+
+<h2>13. What can be claimed today vs unproven</h2>
+<div class="two"><div><b>Supportable now:</b><ul><li>CDSCO requires structured, multi-part, online dossiers across risk classes (primary)</li><li>A parliamentary committee reported repeated queries and opacity; govt drafted shorter timelines (secondary)</li><li>Rival tools exist; few state India-specific support; Pure Global does</li></ul></div>
+<div><b>Unproven:</b><ul><li>That document errors cause CDSCO queries/delays; any % rework</li><li>Time saved, accuracy, willingness to pay, consultant demand</li><li>Number of licensees/consultants; market size beyond assumption</li><li>That competitors lack a feature (only "not stated")</li></ul></div></div>
+
+<h2>14. Final recommendation and key sources</h2>
+<p><b>REVISE:</b> narrow to consultants + Class B/C dossiers; run A1–A3 within ~6 weeks; proceed to build only if A1 and A2 pass, stop if A1 &lt;25% of query items or no paid pilots.</p>
+<ol style="margin:1px 0 0 12px;padding:0;font-size:6.9pt">
+<li><a href="https://cdsco.gov.in/opencms/opencms/en/Acts-and-rules/Medical-Devices-Rules">cdsco.gov.in/…/Acts-and-rules/Medical-Devices-Rules</a> — MDR 2017 and notifications (P)</li>
+<li><a href="https://cdsco.gov.in/opencms/export/sites/CDSCO_WEB/Pdf-documents/MDfAq24.pdf">cdsco.gov.in/…/MDfAq24.pdf</a> — CDSCO FAQ on MDR 2017, 2024 (P)</li>
+<li><a href="https://cdsco.gov.in/opencms/opencms/en/Medical-Device-Diagnostics/Medical-Device-Diagnostics/">cdsco.gov.in/…/Medical-Device-Diagnostics</a> — forms and SUGAM pathways (P)</li>
+<li><a href="https://medicaldialogues.in/news/industry/parliamentary-panel-slams-cdsco-for-slow-drug-approvals-calls-for-conditional-licensing-in-45-days-144885">medicaldialogues.in — parliamentary panel on CDSCO</a>, 13 Mar 2025 (S)</li>
+<li><a href="https://www.pureglobal.com/services/pricing">pureglobal.com/services/pricing</a> — closest public competitor pricing (S)</li></ol>
+<div class="foot"><span>Evidentra — Secondary Research · 21 Oct 2026 · Not customer validation. Exchange/price inputs are assumptions; verify before use.</span><span>Page 3 / 3</span></div>
+</div>
+</body></html>
