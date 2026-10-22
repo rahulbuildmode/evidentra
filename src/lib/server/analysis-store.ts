@@ -1,32 +1,19 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import type { AnalysisResult } from "../analysis";
 import type { MappingResult } from "../mapping";
 import type { DeviceProfile, ValidationReport } from "../regulatory/types";
 import { isSafeId } from "../uploads";
-import { dataRoot } from "./document-store";
+import { readJson, storage, writeJson } from "./storage";
 
-/** Latest successful result per workspace, stored next to the uploads (private, git-ignored). */
+/** Latest successful result per workspace, stored next to the uploads (private; see storage.ts). */
 type Kind = "analyses" | "mappings" | "profiles" | "validations";
 
-function file(kind: Kind, workspaceId: string): string {
+function key(kind: Kind, workspaceId: string): string {
   if (!isSafeId(workspaceId)) throw new Error("Invalid workspace id");
-  return path.join(dataRoot(), kind, `${workspaceId}.json`);
+  return `${kind}/${workspaceId}.json`;
 }
 
-async function save(kind: Kind, workspaceId: string, data: unknown): Promise<void> {
-  const f = file(kind, workspaceId);
-  await mkdir(path.dirname(f), { recursive: true });
-  await writeFile(f, JSON.stringify(data));
-}
-
-async function load<T>(kind: Kind, workspaceId: string): Promise<T | null> {
-  try {
-    return JSON.parse(await readFile(file(kind, workspaceId), "utf8")) as T;
-  } catch {
-    return null;
-  }
-}
+const save = (kind: Kind, workspaceId: string, data: unknown) => writeJson(key(kind, workspaceId), data);
+const load = <T>(kind: Kind, workspaceId: string) => readJson<T>(key(kind, workspaceId));
 
 export const saveAnalysis = (r: AnalysisResult) => save("analyses", r.workspaceId, r);
 export const getAnalysis = (ws: string) => load<AnalysisResult>("analyses", ws);
@@ -39,7 +26,5 @@ export const saveValidation = (r: ValidationReport) => save("validations", r.wor
 export const getSavedValidation = (ws: string) => load<ValidationReport>("validations", ws);
 
 export async function clearResults(workspaceId: string): Promise<void> {
-  await rm(file("analyses", workspaceId), { force: true });
-  await rm(file("mappings", workspaceId), { force: true });
-  await rm(file("validations", workspaceId), { force: true });
+  await storage().remove((["analyses", "mappings", "validations"] as Kind[]).map((k) => key(k, workspaceId)));
 }

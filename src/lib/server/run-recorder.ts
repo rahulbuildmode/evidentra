@@ -1,9 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { STEP_KEYS, type RunEvent, type RunEventType, type RunRecord, type RunSummary, type StepKey } from "../run";
 import { isSafeId } from "../uploads";
-import { dataRoot } from "./document-store";
+import { readJson, storage, writeJson } from "./storage";
 
 /**
  * Records one pipeline run on the server: wall-clock timestamps for chronology, a monotonic clock
@@ -13,45 +11,35 @@ import { dataRoot } from "./document-store";
 
 export const newRunId = () => `run-${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
 
-function runDir(workspaceId: string): string {
+function runKey(workspaceId: string, runId: string): string {
   if (!isSafeId(workspaceId)) throw new Error("Invalid workspace id");
-  return path.join(dataRoot(), "runs", workspaceId);
-}
-
-function runFile(workspaceId: string, runId: string): string {
   if (!isSafeId(runId)) throw new Error("Invalid run id");
-  return path.join(runDir(workspaceId), `${runId}.json`);
+  return `runs/${workspaceId}/${runId}.json`;
 }
 
 export async function saveRun(run: RunRecord): Promise<void> {
-  await mkdir(runDir(run.workspaceId), { recursive: true });
-  await writeFile(runFile(run.workspaceId, run.runId), JSON.stringify(run));
+  await writeJson(runKey(run.workspaceId, run.runId), run);
 }
 
 /** A run is only ever read from its own workspace's folder, so a run id from another workspace finds nothing. */
 export async function getRun(workspaceId: string, runId: string): Promise<RunRecord | null> {
   if (!isSafeId(workspaceId) || !isSafeId(runId)) return null;
-  try {
-    const run = JSON.parse(await readFile(runFile(workspaceId, runId), "utf8")) as RunRecord;
-    return run.workspaceId === workspaceId ? run : null;
-  } catch {
-    return null;
-  }
+  const run = await readJson<RunRecord>(runKey(workspaceId, runId));
+  return run && run.workspaceId === workspaceId ? run : null;
 }
 
 export async function listRuns(workspaceId: string, limit = 20): Promise<RunSummary[]> {
-  let names: string[];
-  try {
-    names = await readdir(runDir(workspaceId));
-  } catch {
-    return [];
-  }
-  const out: RunSummary[] = [];
-  for (const n of names.filter((x) => x.endsWith(".json"))) {
-    const r = await getRun(workspaceId, n.slice(0, -5));
-    if (r) out.push({ runId: r.runId, kind: r.kind, status: r.status, startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs });
-  }
-  return out.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit);
+  if (!isSafeId(workspaceId)) return [];
+  const prefix = `runs/${workspaceId}/`;
+  const ids = (await storage().list(prefix)).filter((k) => k.endsWith(".json")).map((k) => k.slice(prefix.length, -5));
+  // Run ids start with a base-36 timestamp, so sorting the ids newest-first avoids reading old runs.
+  const newest = ids.filter((id) => isSafeId(id)).sort((a, b) => b.localeCompare(a)).slice(0, limit * 2);
+  const runs = await Promise.all(newest.map((id) => getRun(workspaceId, id)));
+  return runs
+    .filter((r): r is RunRecord => r !== null)
+    .map((r) => ({ runId: r.runId, kind: r.kind, status: r.status, startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs }))
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
 }
 
 export class RunRecorder {

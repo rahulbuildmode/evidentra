@@ -9,6 +9,8 @@ export async function ingestPdf(
   filename: string,
   bytes: Uint8Array,
   origin: "demo" | "user",
+  /** Fixed id (demo files), so instances seeding at the same time overwrite instead of duplicating. */
+  id: string = randomUUID(),
 ): Promise<UploadedDocumentMeta> {
   const t0 = performance.now();
   const result = await extractPdfPages(bytes);
@@ -16,7 +18,7 @@ export async function ingestPdf(
   const pages = result.ok ? result.pages : [];
   const charCount = pages.reduce((n, p) => n + p.text.replace(/\s/g, "").length, 0);
   const doc: UploadedDocument = {
-    id: randomUUID(),
+    id,
     workspaceId,
     filename,
     sizeBytes: bytes.byteLength,

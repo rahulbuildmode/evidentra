@@ -1,9 +1,9 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { CDSCO_MFG_BCD } from "../requirements";
 import { clearResults, getAnalysis, saveAnalysis, saveProfile, saveValidation } from "./analysis-store";
 import { DEMO_ANALYSIS, DEMO_FILES } from "./demo-seed";
-import { dataRoot, listDocuments } from "./document-store";
+import { clearDocuments, listDocuments } from "./document-store";
 import { ingestPdf } from "./ingest";
 import { recordChecks, recordValidation, recordVerification, summarizeFindings } from "./run-pipeline";
 import { RunRecorder } from "./run-recorder";
@@ -20,14 +20,14 @@ export const DEMO_WORKSPACE_ID = "demo-workspace"; // same id as lib/demo-data.t
 export async function loadDemo(): Promise<{ documents: number; unverifiedQuotes: number; runId: string }> {
   const ws = DEMO_WORKSPACE_ID;
   const rec = new RunRecorder(ws, "demo-seed", CDSCO_MFG_BCD.id);
-  await rm(path.join(dataRoot(), "uploads", ws), { recursive: true, force: true });
+  await clearDocuments(ws);
   await clearResults(ws);
   rec.start("documents", "Reading the 4 fictional PDFs in fixtures/demo-dossier (SYNTHETIC DEMO DATA)");
   rec.complete("documents", `${DEMO_FILES.length} synthetic files (not uploaded by a user)`);
   rec.start("extraction", "Extracting text page by page");
   for (const name of DEMO_FILES) {
     const bytes = new Uint8Array(await readFile(path.join(process.cwd(), "fixtures", "demo-dossier", name)));
-    const meta = await ingestPdf(ws, name, bytes, "demo");
+    const meta = await ingestPdf(ws, name, bytes, "demo", `demo-${name.slice(0, 2)}`);
     rec.event("document_processed", "extraction", name, { id: meta.id, pages: meta.pageCount, extractMs: meta.extractMs });
   }
   const { docs, skipped } = await loadReadableDocuments(ws);
