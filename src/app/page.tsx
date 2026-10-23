@@ -1,14 +1,6 @@
-"use client";
+import { Landing } from "@/components/landing/Landing";
 
-import { EvidenceInspector } from "@/components/EvidenceInspector";
-import { Workspace } from "@/components/workspace/Workspace";
-
-/** Evidentra is one compact workspace: 01 Dossier → 02 Findings → 03 CDSCO readiness. */
+/** The cinematic front door. The working app lives at /app. */
 export default function Home() {
-  return (
-    <>
-      <Workspace />
-      <EvidenceInspector />
-    </>
-  );
+  return <Landing />;
 }

@@ -42,13 +42,15 @@ Open <http://localhost:3000>. The app opens on your own empty dossier; **Try the
 
 ## Demo script (about 3 minutes)
 
-Evidentra is one compact workspace with three steps (top bar; the step is in the URL hash, so Back works and run state is kept):
+*Every dossier is a case. Every inconsistency is a lead. Every finding must have evidence.* One compact workspace, three stages (the stage is in the URL hash):
 
-1. **01 Dossier** (`/#dossier`) — *Analyse a dossier* (your own, empty dossier) or *Try synthetic demo* (labelled SYNTHETIC DEMO DATA). Drag PDFs in; each shows its real server-side extraction status. Confirm **device and pathway** (applicability is decided by code from these details). Press **Analyse dossier** and watch the step strip fill from real server events. *View analysis details* opens the Engine Room; *Demo tests* holds the backend tests (bad file, scanned PDF, unsupported quote, prompt injection).
-2. **02 Findings** (`/#findings`) — *Potential inconsistencies* and *Evidence*. Select an item to see the quotations, documents, pages and verification result; *Inspect source text* highlights the quote in the extracted page; *Mark as reviewed* records your decision.
-3. **03 CDSCO readiness** (`/#readiness`) — every requirement check with its status (filterable), official source excerpt and link, applicability rationale, evidence and next action; next actions and unresolved items alongside; CSV export.
+1. **01 Case file** (`/#dossier`) — choose a mission: *Analyse a dossier* (new, empty case) or *Explore sample dossier* (labelled SYNTHETIC DEMO DATA). Evidence intake shows each PDF's real extraction status; confirm the device and pathway; *Scan* runs the real pipeline with a step timeline driven by server events. Mission task cards below show what has genuinely been done.
+2. **02 Investigation board** (`/#findings`) — leads in three lanes: *Conflicts · verified by code*, *Leads · AI proposals* (or demo seed) and *Possible gaps*. Select a lead to see the competing values, the verified quotations, the CDSCO requirements it affects and its next action; *Inspect source pages* opens the extracted page with the quote highlighted; *Mark as reviewed* records your decision.
+3. **03 Case summary** (`/#readiness`) — reviewed and unresolved leads, every CDSCO requirement check with its official source, applicability and evidence, next actions, unresolved items; print/PDF and CSV.
 
-For a full dossier, upload the 9 PDFs in `fixtures/full-dossier/` (see its README).
+**Case progress** (top right) counts only real actions — evidence extracted, scan run, a verified quotation opened, leads and requirement checks reviewed, summary exported — and shows achievements earned for them. There are no points or scores, and finishing a case does not mean the device is compliant.
+
+For a full case, upload the 9 PDFs in `fixtures/full-dossier/`.
 
 ## CDSCO validation (one pathway)
 

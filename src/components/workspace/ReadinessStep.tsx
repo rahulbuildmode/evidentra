@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { caseLog } from "@/lib/case-log";
 import { validationCsv } from "@/lib/csv";
 import { downloadCsv } from "@/lib/download";
 import { inspector } from "@/lib/inspector-store";
@@ -199,13 +200,14 @@ export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void;
     );
   const shown = v.results.filter((r) => filter === "all" || r.status === filter);
   const aiGaps = report.findings.filter((f) => f.group === "missing_info" && !f.dismissed);
+  const leads = report.findings.filter((f) => !f.dismissed);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 id="step-readiness" tabIndex={-1} className="text-xl font-semibold tracking-tight focus:outline-none">
-            CDSCO readiness
+            Case summary
           </h1>
           <p className="text-xs text-porcelain/50">
             {v.decision.status === "in_scope" ? v.decision.form : v.decision.label} · library v{v.pathway.libraryVersion} (checked {v.pathway.lastReviewed}) · prepared {fmt(v.generatedAt)}
@@ -214,14 +216,23 @@ export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void;
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={onBack} className="press rounded-full border hairline px-3 py-1.5 text-xs hover:border-porcelain/40">
-            ← Findings
+            ← Investigation board
           </button>
-          <button type="button" onClick={() => window.print()} className="press rounded-full border hairline px-3 py-1.5 text-xs hover:border-porcelain/40">
+          <button
+            type="button"
+            onClick={() => {
+              caseLog.record(v.workspaceId, { exported: { at: new Date().toISOString(), kind: "print" } });
+              window.print();
+            }}
+            className="press rounded-full border hairline px-3 py-1.5 text-xs hover:border-porcelain/40">
             Print / PDF
           </button>
           <button
             type="button"
-            onClick={() => downloadCsv("evidentra-cdsco-validation.csv", validationCsv(v))}
+            onClick={() => {
+              downloadCsv("evidentra-cdsco-validation.csv", validationCsv(v));
+              caseLog.record(v.workspaceId, { exported: { at: new Date().toISOString(), kind: "csv" } });
+            }}
             className="press rounded-full border border-ion/50 px-3 py-1.5 text-xs text-ion hover:bg-ion/10"
           >
             Download CSV
@@ -229,6 +240,7 @@ export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void;
         </div>
       </div>
 
+      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">CDSCO requirement checks</h2>
       {/* Status filter = summary of the real results */}
       <div role="group" aria-label="Filter by result" className="flex flex-wrap gap-1.5">
         <button
@@ -269,6 +281,40 @@ export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void;
         </ul>
 
         <aside className="space-y-4">
+          <section className="surface rounded-2xl p-4" aria-labelledby="leads-title">
+            <h2 id="leads-title" className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">
+              Leads
+              <span className="normal-case tracking-normal text-porcelain/45">
+                <span className="text-ion">{leads.filter((f) => f.humanReviewed).length} reviewed</span> ·{" "}
+                <span className="text-amber">{leads.filter((f) => !f.humanReviewed).length} unresolved</span>
+              </span>
+            </h2>
+            {leads.length === 0 ? (
+              <p className="mt-2 text-sm text-porcelain/55">{report.analysis ? "No leads were found." : "No scan yet."}</p>
+            ) : (
+              <ul className="mt-2 max-h-[22vh] space-y-1.5 overflow-auto pr-1 text-xs">
+                {leads.map((f) => {
+                  const c = f.citations[0];
+                  return (
+                    <li key={f.key} className="flex gap-2">
+                      <span aria-hidden className={f.humanReviewed ? "text-ion" : "text-amber"}>
+                        {f.humanReviewed ? "✓" : "○"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="text-porcelain/85">{f.title}</span>
+                        <span className="sr-only">{f.humanReviewed ? " (reviewed)" : " (unresolved)"}</span>
+                        {c && (
+                          <span className="block truncate font-mono text-[10px] text-porcelain/40">
+                            {c.filename} · p.{c.page ?? "?"} · {c.verified ? "verified" : "not verified"}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
           <section className="surface rounded-2xl p-4">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-porcelain/60">Next actions</h2>
             {v.actions.length === 0 ? (
@@ -316,7 +362,10 @@ export function ReadinessStep({ onBack, focusReq = null }: { onBack: () => void;
           </details>
         </aside>
       </div>
-      <p className="text-[11px] text-porcelain/40">Prototype readiness assessment — not an official CDSCO decision, legal opinion or compliance certification.</p>
+      <p className="text-[11px] text-porcelain/40">
+        Prototype readiness assessment — not an official CDSCO decision, legal opinion or compliance certification. Closing every lead and task does not mean the device is
+        compliant or will be approved.
+      </p>
     </div>
   );
 }
